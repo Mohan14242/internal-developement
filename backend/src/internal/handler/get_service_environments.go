@@ -21,7 +21,7 @@ func GetServiceEnvironments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serviceName := parts[2]
+	serviceName := parts[1]
 
 	rows, err := db.DB.Query(
 		`SELECT DISTINCT environment
