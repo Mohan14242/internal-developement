@@ -28,7 +28,7 @@ func GetServiceArtifacts(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid path", http.StatusBadRequest)
 		return
 	}
-	serviceName := parts[2]
+	serviceName := parts[1]
 
 	// Query param: environment
 	environment := r.URL.Query().Get("environment")
