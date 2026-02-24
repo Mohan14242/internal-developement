@@ -24,7 +24,7 @@ func GetServiceArtifacts(w http.ResponseWriter, r *http.Request) {
 
 	// Expected path: /services/{serviceName}/artifacts
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) != 3 || parts[0] != "services" || parts[2] != "artifacts" {
+	if len(parts) != 3 || parts[0] != "artifact-by-env" || parts[2] != "artifacts" {
 		http.Error(w, "invalid path", http.StatusBadRequest)
 		return
 	}
