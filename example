@@ -1,0 +1,10 @@
+serviceName: user-service14242-go-github-912199121
+repoName: user-service14242-go-github-912199121
+ownerTeam: user14242
+runtime: go
+cicdType: jenkins
+templateVersion: v1
+deploytype: microservice
+environments: [dev,test,prod]
+enableWebhook: true
+

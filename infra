@@ -1,0 +1,14 @@
+infra: 
+    k8clutser: 
+        exists: yes 
+    lambda: 
+        exists: no 
+        runtime: python 3.12 
+    IAM: 
+        exists: no 
+        permissions: s3read
+    autoscaling:
+        exists: no 
+        min: 5 
+        max: 6 
+        instance_type: t3.medium
