@@ -1,15 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        SERVICE_NAME = ""
-        ENVIRONMENT  = ""
-        COMMIT_SHA   = ""
-        GIT_TAG      = ""
-        VERSION      = ""
-        GITHUB_REPO  = ""
-    }
-
     stages {
 
         stage('Load Project Configuration') {
@@ -23,41 +14,14 @@ pipeline {
                     echo "Loaded Config: ${projectConfig}"
 
                     env.SERVICE_NAME = projectConfig.serviceName ?: error("serviceName missing in config.json")
-                    env.GITHUB_REPO  = projectConfig.github_repo ?: "not-defined"
+                    env.GITHUB_REPO  = projectConfig.repoUrl ?: "not-defined"
 
                     echo "SERVICE_NAME = ${env.SERVICE_NAME}"
                 }
             }
         }
 
-        stage('Detect Environment') {
-            steps {
-                script {
-                    echo "Detected Branch: ${env.BRANCH_NAME}"
-
-                    if (!env.BRANCH_NAME) {
-                        error "BRANCH_NAME not available. Ensure this is a Multibranch Pipeline job."
-                    }
-
-                    if (env.BRANCH_NAME == 'dev') {
-                        env.ENVIRONMENT = 'dev'
-                    } 
-                    else if (env.BRANCH_NAME == 'test') {
-                        env.ENVIRONMENT = 'test'
-                    } 
-                    else if (env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'main') {
-                        env.ENVIRONMENT = 'prod'
-                    } 
-                    else {
-                        error "Unsupported branch: ${env.BRANCH_NAME}"
-                    }
-
-                    echo "ENVIRONMENT = ${env.ENVIRONMENT}"
-                }
-            }
-        }
-
-        stage('Get Commit SHA') {
+        stage("Loading Other Variables") {
             steps {
                 script {
                     env.COMMIT_SHA = sh(
@@ -66,41 +30,10 @@ pipeline {
                     ).trim()
 
                     echo "COMMIT_SHA = ${env.COMMIT_SHA}"
+
+                    env.VERSION = "${env.SERVICE_NAME}-${env.COMMIT_SHA}"
+                    echo "VERSION = ${env.VERSION}"
                 }
-            }
-        }
-
-        stage('Get Git Tag Version') {
-            steps {
-                script {
-                    env.GIT_TAG = sh(
-                        script: 'git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0"',
-                        returnStdout: true
-                    ).trim()
-
-                    echo "GIT_TAG = ${env.GIT_TAG}"
-                }
-            }
-        }
-
-        stage('Generate Final Version') {
-            steps {
-                script {
-                    env.VERSION = "${env.SERVICE_NAME}_${env.ENVIRONMENT}_${env.GIT_TAG}_${env.COMMIT_SHA}"
-
-                    if (!env.VERSION || env.VERSION.contains("null")) {
-                        error "VERSION generation failed!"
-                    }
-
-                    echo "Generated VERSION: ${env.VERSION}"
-                }
-            }
-        }
-
-        stage('Docker Build & Push') {
-            steps {
-                echo "Building Docker image with version ${env.VERSION}"
-                // Add your docker build/push commands here
             }
         }
     }
@@ -114,7 +47,7 @@ pipeline {
                 -H "Content-Type: application/json" \
                 -d '{
                   "serviceName": "${env.SERVICE_NAME}",
-                  "environment": "${env.ENVIRONMENT}",
+                  "environment": "${env.BRANCH_NAME}",
                   "version": "${env.VERSION}",
                   "artifactType": "docker",
                   "artifactId": "myrepo/${env.SERVICE_NAME}:${env.VERSION}",

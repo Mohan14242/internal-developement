@@ -1,5 +1,5 @@
-serviceName: user-service14242-go-github-912199121
-repoName: user-service14242-go-github-912199121
+serviceName: user-service14242-go-github-912199121-mohan
+repoName: user-service14242-go-github-912199121-mohan
 ownerTeam: user14242
 runtime: go
 cicdType: jenkins

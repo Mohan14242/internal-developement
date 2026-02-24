@@ -126,9 +126,16 @@ func CreateService(req model.CreateServiceRequest) (string, error) {
 		return "", err
 	}
 
+	// After template copy
+	err = UpdateConfigJSON(repoPath, req.ServiceName, repoURL)
+	if err != nil {
+		cleanupRepo()
+		return "", err
+	}
+
 	// 6️⃣ Push code
 	log.Println("⬆️ Pushing code")
-	err = git.PushRepo(token, req.RepoName, repoPath)
+	err = git.PushRepo(token, req.RepoName, repoPath,"dev")
 	if err != nil {
 		cleanupRepo()
 		return "", err
