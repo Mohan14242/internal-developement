@@ -84,7 +84,7 @@ pipeline {
             echo "✅ Pipeline SUCCESS for ${env.VERSION}"
 
             sh """
-              curl -X POST ${PLATFORM_API}/api/artifacts \
+              curl -X POST  http://54.196.169.186/api/artifacts \
                 -H "Content-Type: application/json" \
                 -d '{
                   "serviceName": "${env.SERVICE_NAME}",
@@ -93,8 +93,8 @@ pipeline {
                   "artifactType": "docker",
                   "artifactId": "myrepo/${env.SERVICE_NAME}:${env.VERSION}",
                   "commitSha": "${env.COMMIT_SHA}",
-                  "gitTag": "${env.GIT_TAG}",
                   "pipeline": "jenkins",
+                  "action":"deploy",
                   "status": "success"
                 }'
             """
