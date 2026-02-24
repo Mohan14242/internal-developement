@@ -4,20 +4,28 @@ pipeline {
     environment {
         SERVICE_NAME = ""
         ENVIRONMENT  = ""
-        COMMIT_SHA  = ""
-        GIT_TAG     = ""
-        VERSION     = ""
-        
+        COMMIT_SHA   = ""
+        GIT_TAG      = ""
+        VERSION      = ""
+        GITHUB_REPO  = ""
     }
 
     stages {
 
-        stage('Load project configuration') {
+        stage('Load Project Configuration') {
             steps {
                 script {
+                    if (!fileExists('config.json')) {
+                        error "config.json file not found!"
+                    }
+
                     def projectConfig = readJSON file: 'config.json'
-                    env.SERVICE_NAME = projectConfig.serviceName
-                    env.GITHUB_REPO  = projectConfig.github_repo
+                    echo "Loaded Config: ${projectConfig}"
+
+                    env.SERVICE_NAME = projectConfig.serviceName ?: error("serviceName missing in config.json")
+                    env.GITHUB_REPO  = projectConfig.github_repo ?: "not-defined"
+
+                    echo "SERVICE_NAME = ${env.SERVICE_NAME}"
                 }
             }
         }
@@ -25,18 +33,30 @@ pipeline {
         stage('Detect Environment') {
             steps {
                 script {
+                    echo "Detected Branch: ${env.BRANCH_NAME}"
+
+                    if (!env.BRANCH_NAME) {
+                        error "BRANCH_NAME not available. Ensure this is a Multibranch Pipeline job."
+                    }
+
                     if (env.BRANCH_NAME == 'dev') {
                         env.ENVIRONMENT = 'dev'
-                    } else if (env.BRANCH_NAME == 'test') {
+                    } 
+                    else if (env.BRANCH_NAME == 'test') {
                         env.ENVIRONMENT = 'test'
-                    } else if (env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'main') {
+                    } 
+                    else if (env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'main') {
                         env.ENVIRONMENT = 'prod'
-                    } else {
+                    } 
+                    else {
                         error "Unsupported branch: ${env.BRANCH_NAME}"
                     }
+
+                    echo "ENVIRONMENT = ${env.ENVIRONMENT}"
                 }
             }
         }
+
         stage('Get Commit SHA') {
             steps {
                 script {
@@ -44,6 +64,8 @@ pipeline {
                         script: "git rev-parse --short HEAD",
                         returnStdout: true
                     ).trim()
+
+                    echo "COMMIT_SHA = ${env.COMMIT_SHA}"
                 }
             }
         }
@@ -52,13 +74,11 @@ pipeline {
             steps {
                 script {
                     env.GIT_TAG = sh(
-                        script: """
-                          git describe --tags \$(git rev-list --tags --max-count=1) || echo "v0.0.0"
-                        """,
+                        script: 'git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0"',
                         returnStdout: true
                     ).trim()
 
-                    echo "Resolved Git Tag: ${env.GIT_TAG}"
+                    echo "GIT_TAG = ${env.GIT_TAG}"
                 }
             }
         }
@@ -67,6 +87,11 @@ pipeline {
             steps {
                 script {
                     env.VERSION = "${env.SERVICE_NAME}_${env.ENVIRONMENT}_${env.GIT_TAG}_${env.COMMIT_SHA}"
+
+                    if (!env.VERSION || env.VERSION.contains("null")) {
+                        error "VERSION generation failed!"
+                    }
+
                     echo "Generated VERSION: ${env.VERSION}"
                 }
             }
@@ -75,6 +100,7 @@ pipeline {
         stage('Docker Build & Push') {
             steps {
                 echo "Building Docker image with version ${env.VERSION}"
+                // Add your docker build/push commands here
             }
         }
     }
@@ -84,7 +110,7 @@ pipeline {
             echo "✅ Pipeline SUCCESS for ${env.VERSION}"
 
             sh """
-              curl -X POST  http://54.196.169.186/api/artifacts \
+              curl -X POST http://54.196.169.186/api/artifacts \
                 -H "Content-Type: application/json" \
                 -d '{
                   "serviceName": "${env.SERVICE_NAME}",
@@ -98,6 +124,10 @@ pipeline {
                   "status": "success"
                 }'
             """
+        }
+
+        failure {
+            echo "❌ Pipeline FAILED"
         }
     }
 }
