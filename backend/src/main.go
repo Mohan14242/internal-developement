@@ -19,8 +19,7 @@ func main() {
 	http.HandleFunc("/services/", handler.DeployService)
 	http.HandleFunc("/artifacts", handler.RegisterArtifact)
 	http.HandleFunc("/api/services/", handler.GetServiceDashboard)
-
-
+	http.HandleFunc("/service-by-env/", handler.GetServiceEnvironments)
 	log.Println("🚀 Server started on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
