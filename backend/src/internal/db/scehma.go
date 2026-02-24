@@ -5,6 +5,8 @@ import "log"
 func EnsureSchema() error {
 	log.Println("🧱 Ensuring database schema exists")
 
+	/* ===================== SERVICES ===================== */
+
 	servicesTable := `
 	CREATE TABLE IF NOT EXISTS services (
 		id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -39,6 +41,8 @@ func EnsureSchema() error {
 			ON UPDATE CURRENT_TIMESTAMP
 	);`
 
+	/* ===================== DEPLOYMENTS ===================== */
+
 	deploymentsTable := `
 	CREATE TABLE IF NOT EXISTS deployments (
 		id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -57,6 +61,48 @@ func EnsureSchema() error {
 			ON DELETE CASCADE
 	);`
 
+	/* ===================== ARTIFACTS (HISTORY) ===================== */
+
+	artifactsTable := `
+	CREATE TABLE IF NOT EXISTS artifacts (
+		id BIGINT AUTO_INCREMENT PRIMARY KEY,
+
+		service_name VARCHAR(150) NOT NULL,
+		environment VARCHAR(20) NOT NULL,
+
+		version VARCHAR(255) NOT NULL,
+		artifact_type VARCHAR(20) NOT NULL, -- docker | ami
+		artifact_id VARCHAR(255) NOT NULL,  -- image:tag or ami-id
+
+		commit_sha VARCHAR(40) NULL,
+		pipeline VARCHAR(30) NULL,          -- jenkins | github
+		action VARCHAR(20) NOT NULL,        -- deploy | rollback
+
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+		INDEX idx_artifacts_service_env (service_name, environment),
+		INDEX idx_artifacts_version (version)
+	);`
+
+	/* ===================== ENVIRONMENT STATE (CURRENT) ===================== */
+
+	environmentStateTable := `
+	CREATE TABLE IF NOT EXISTS environment_state (
+		service_name VARCHAR(150) NOT NULL,
+		environment VARCHAR(20) NOT NULL,
+
+		version VARCHAR(255) NOT NULL,
+		artifact_id VARCHAR(255) NOT NULL,
+		status VARCHAR(20) NOT NULL DEFAULT 'success',
+
+		deployed_at TIMESTAMP NOT NULL,
+
+		PRIMARY KEY (service_name, environment),
+		INDEX idx_env_state_service (service_name)
+	);`
+
+	/* ===================== INDEXES ===================== */
+
 	indexes := []string{
 		`CREATE INDEX IF NOT EXISTS idx_services_owner_team ON services(owner_team);`,
 		`CREATE INDEX IF NOT EXISTS idx_services_status ON services(status);`,
@@ -64,21 +110,28 @@ func EnsureSchema() error {
 		`CREATE INDEX IF NOT EXISTS idx_deployments_service_id ON deployments(service_id);`,
 	}
 
-	// Create tables
-	if _, err := DB.Exec(servicesTable); err != nil {
-		log.Println("❌ Failed to ensure services table:", err)
-		return err
+	/* ===================== EXECUTION ===================== */
+
+	tables := []struct {
+		name string
+		sql  string
+	}{
+		{"services", servicesTable},
+		{"deployments", deploymentsTable},
+		{"artifacts", artifactsTable},
+		{"environment_state", environmentStateTable},
 	}
 
-	if _, err := DB.Exec(deploymentsTable); err != nil {
-		log.Println("❌ Failed to ensure deployments table:", err)
-		return err
+	for _, t := range tables {
+		if _, err := DB.Exec(t.sql); err != nil {
+			log.Printf("❌ Failed to ensure %s table: %v\n", t.name, err)
+			return err
+		}
 	}
 
-	// Create indexes
 	for _, idx := range indexes {
 		if _, err := DB.Exec(idx); err != nil {
-			log.Println("⚠️ Failed to create index (may already exist):", err)
+			log.Println("⚠️ Index creation skipped (may already exist):", err)
 		}
 	}
 

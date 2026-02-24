@@ -50,3 +50,19 @@ type CreateServiceRequest struct {
 // 	CostCenter   string `yaml:"costCenter"`
 // 	BusinessUnit string `yaml:"businessUnit"`
 // }
+
+
+
+type ArtifactEvent struct {
+	ServiceName  string `json:"serviceName"`
+	Environment  string `json:"environment"`
+	Version      string `json:"version"`
+	ArtifactType string `json:"artifactType"`
+	ArtifactID   string `json:"artifactId"`
+	CommitSHA    string `json:"commitSha"`
+	Pipeline     string `json:"pipeline"`
+	Action       string `json:"action"`   // deploy | rollback
+	Status       string `json:"status"`   // success
+}
+
+
