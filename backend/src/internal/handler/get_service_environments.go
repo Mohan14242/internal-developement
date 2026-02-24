@@ -14,9 +14,9 @@ func GetServiceEnvironments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Expected path: /api/services/{serviceName}/environments
+	// Expected path: /services/{serviceName}/environments
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) != 4 {
+	if len(parts) != 3 {
 		http.Error(w, "invalid path", http.StatusBadRequest)
 		return
 	}
