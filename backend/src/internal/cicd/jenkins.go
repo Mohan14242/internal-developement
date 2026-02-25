@@ -176,17 +176,40 @@ func TriggerJenkinsDeploy(jobName, branch string) error {
 	user := os.Getenv("JENKINS_USER")
 	apiToken := os.Getenv("JENKINS_API_TOKEN")
 
-	url := fmt.Sprintf(
+	// 1️⃣ Get Crumb
+	crumbURL := fmt.Sprintf("%s/crumbIssuer/api/json", jenkinsURL)
+	crumbReq, _ := http.NewRequest("GET", crumbURL, nil)
+	crumbReq.SetBasicAuth(user, apiToken)
+
+	crumbResp, err := http.DefaultClient.Do(crumbReq)
+	if err != nil {
+		return err
+	}
+	defer crumbResp.Body.Close()
+
+	var crumbData struct {
+		Crumb             string `json:"crumb"`
+		CrumbRequestField string `json:"crumbRequestField"`
+	}
+	if err := json.NewDecoder(crumbResp.Body).Decode(&crumbData); err != nil {
+		return err
+	}
+
+	// 2️⃣ Build URL (Multibranch)
+	buildURL := fmt.Sprintf(
 		"%s/job/%s/job/%s/build",
 		jenkinsURL, jobName, branch,
 	)
 
-	req, err := http.NewRequest("POST", url, nil)
+	req, err := http.NewRequest("POST", buildURL, nil)
 	if err != nil {
 		return err
 	}
 
 	req.SetBasicAuth(user, apiToken)
+
+	// 🔥 Add Crumb Header
+	req.Header.Set(crumbData.CrumbRequestField, crumbData.Crumb)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -195,10 +218,13 @@ func TriggerJenkinsDeploy(jobName, branch string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("jenkins trigger failed: %s", resp.Status)
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("jenkins trigger failed: %s - %s", resp.Status, string(body))
 	}
+
 	return nil
 }
+
 
 
 
