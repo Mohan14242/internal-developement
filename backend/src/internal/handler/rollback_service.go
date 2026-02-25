@@ -61,7 +61,7 @@ func RollbackService(w http.ResponseWriter, r *http.Request) {
 	// 🔍 Get CICD type & repo info
 	var cicdType, owner, repo string
 	err = db.DB.QueryRow(`
-		SELECT cicd_type, repo_owner, repo_name
+		SELECT cicd_type, owner_team, repo_name
 		FROM services
 		WHERE service_name = ?`,
 		serviceName,
