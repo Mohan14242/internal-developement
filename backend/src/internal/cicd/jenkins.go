@@ -112,8 +112,7 @@ func (j *JenkinsClient) CreateMultibranchJob(
       <token>%s</token>
     </com.igalg.jenkins.plugins.mswt.trigger.ComputedFolderWebHookTrigger>
   </properties>
-  <folderViews class="jenkins.branch.MultiBranchProjectViewHolder"/>
-
+  
   <orphanedItemStrategy class="com.cloudbees.hudson.plugins.folder.computed.DefaultOrphanedItemStrategy">
     <pruneDeadBranches>true</pruneDeadBranches>
     <daysToKeep>-1</daysToKeep>
@@ -169,52 +168,54 @@ func (j *JenkinsClient) CreateMultibranchJob(
 	return nil
 }
 
-//
-// ─────────────────────────────────────────────
-// ▶️ TRIGGER INITIAL SCAN
-// ─────────────────────────────────────────────
-//
 
-// func (j *JenkinsClient) TriggerScan(jobName string) error {
-// 	url := fmt.Sprintf(
-// 		"%s/job/%s/build?delay=0sec",
-// 		j.BaseURL,
-// 		jobName,
-// 	)
 
-// 	log.Println("[JENKINS] Triggering scan for job:", jobName)
-// 	log.Println("[JENKINS] Trigger URL:", url)
 
-// 	req, err := http.NewRequest("POST", url, nil)
-// 	if err != nil {
-// 		return err
-// 	}
+func TriggerJenkinsDeploy(jobName, branch string) error {
+	jenkinsURL := os.Getenv("JENKINS_URL")
+	token := os.Getenv("JENKINS_TOKEN")
 
-// 	req.SetBasicAuth(j.User, j.Token)
+	url := fmt.Sprintf(
+		"%s/job/%s/buildWithParameters?token=%s&branch=%s",
+		jenkinsURL, jobName, token, branch,
+	)
 
-// 	// 🔐 CSRF crumb
-// 	field, crumb, err := j.getCrumb()
-// 	if err != nil {
-// 		return fmt.Errorf("failed to get jenkins crumb: %w", err)
-// 	}
-// 	req.Header.Set(field, crumb)
+	resp, err := http.Post(url, "", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
-// 	start := time.Now()
-// 	resp, err := http.DefaultClient.Do(req)
-// 	log.Println("[JENKINS] Trigger scan latency:", time.Since(start))
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("jenkins trigger failed: %s", resp.Status)
+	}
+	return nil
+}
 
-// 	if err != nil {
-// 		log.Println("[JENKINS][ERROR] Trigger scan failed:", err)
-// 		return err
-// 	}
-// 	defer resp.Body.Close()
 
-// 	log.Println("[JENKINS] Trigger scan response status:", resp.Status)
 
-// 	if resp.StatusCode >= 300 {
-// 		return fmt.Errorf("jenkins trigger scan failed: %s", resp.Status)
-// 	}
+func TriggerJenkinsRollback(serviceName, environment, version string) error {
+	jenkinsURL := os.Getenv("JENKINS_URL")
+	token := os.Getenv("JENKINS_TOKEN")
 
-// 	log.Println("[JENKINS] Scan triggered successfully:", jobName)
-// 	return nil
-// }
+	url := fmt.Sprintf(
+		"%s/job/%s/buildWithParameters?token=%s&ROLLBACK=true&ROLLBACK_VERSION=%s&ENVIRONMENT=%s",
+		jenkinsURL,
+		serviceName,
+		token,
+		version,
+		environment,
+	)
+
+	resp, err := http.Post(url, "", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("jenkins rollback trigger failed: %s", resp.Status)
+	}
+
+	return nil
+}

@@ -21,6 +21,9 @@ func main() {
 	http.HandleFunc("/api/services/", handler.GetServiceDashboard)
 	http.HandleFunc("/service-by-env/", handler.GetServiceEnvironments)
 	http.HandleFunc("/artifact-by-env/", handler.GetServiceArtifacts)
+	http.HandleFunc("/deploy-services/", handler.DeployServices)
+	http.HandleFunc("/rollback-services/", handler.RollbackService)
+
 	log.Println("🚀 Server started on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

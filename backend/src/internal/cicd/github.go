@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
 	"src/src/internal/aws"
 )
 
@@ -139,4 +138,95 @@ func (g *GitHubClient) CreateWebhook(owner, repo, webhookURL string) error {
 	log.Println("--------------------------------------------------")
 
 	return nil
+}
+
+
+
+
+func TriggerGitHubDeploy(owner, repo, branch string) error {
+	token, err := aws.GetGitToken("git-token")
+	workflow := "deploy.yml" // name of workflow file
+	payload := map[string]interface{}{
+		"ref": branch,
+	}
+	body, _ := json.Marshal(payload)
+
+	req, _ := http.NewRequest(
+		"POST",
+		fmt.Sprintf(
+			"https://api.github.com/repos/%s/%s/actions/workflows/%s/dispatches",
+			owner, repo, workflow,
+		),
+		bytes.NewBuffer(body),
+	)
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("github actions trigger failed: %s", resp.Status)
+	}
+
+	return nil
+}
+
+
+
+func TriggerGitHubRollback(owner, repo, environment, version string) error {
+	token, err := aws.GetGitToken("git-token")
+	workflow := "deploy.yml" // same workflow, handles rollback via inputs
+	payload := map[string]interface{}{
+		"ref": environmentBranch(environment),
+		"inputs": map[string]string{
+			"rollback": "true",
+			"version":  version,
+		},
+	}
+
+	body, _ := json.Marshal(payload)
+
+	req, _ := http.NewRequest(
+		"POST",
+		fmt.Sprintf(
+			"https://api.github.com/repos/%s/%s/actions/workflows/%s/dispatches",
+			owner, repo, workflow,
+		),
+		bytes.NewBuffer(body),
+	)
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("github rollback trigger failed: %s", resp.Status)
+	}
+
+	return nil
+}
+
+func environmentBranch(env string) string {
+	switch env {
+	case "dev":
+		return "dev"
+	case "test":
+		return "test"
+	case "prod":
+		return "master"
+	default:
+		return "master"
+	}
 }

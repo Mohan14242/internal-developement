@@ -1,6 +1,19 @@
 pipeline {
     agent any
 
+    parameters {
+        booleanParam(
+            name: 'ROLLBACK',
+            defaultValue: false,
+            description: 'Enable rollback'
+        )
+        string(
+            name: 'ROLLBACK_VERSION',
+            defaultValue: '',
+            description: 'Version to rollback to'
+        )
+    }
+
     stages {
 
         stage('Load Project Configuration') {
@@ -21,7 +34,12 @@ pipeline {
             }
         }
 
-        stage("Loading Other Variables") {
+        /* ================= NORMAL DEPLOY ================= */
+
+        stage("Generate Version") {
+            when {
+                expression { !params.ROLLBACK }
+            }
             steps {
                 script {
                     env.COMMIT_SHA = sh(
@@ -29,10 +47,34 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    echo "COMMIT_SHA = ${env.COMMIT_SHA}"
-
                     env.VERSION = "${env.SERVICE_NAME}-${env.COMMIT_SHA}"
-                    echo "VERSION = ${env.VERSION}"
+                    echo "Generated VERSION = ${env.VERSION}"
+                }
+            }
+        }
+
+        stage("Simulate Deploy") {
+            when {
+                expression { !params.ROLLBACK }
+            }
+            steps {
+                echo "🚀 Simulating deployment of ${env.VERSION} to ${env.BRANCH_NAME}"
+            }
+        }
+
+        /* ================= ROLLBACK ================= */
+
+        stage("Rollback") {
+            when {
+                allOf {
+                    expression { params.ROLLBACK }
+                    expression { params.ROLLBACK_VERSION?.trim() }
+                }
+            }
+            steps {
+                script {
+                    env.VERSION = params.ROLLBACK_VERSION
+                    echo "🔄 Simulating rollback to version ${env.VERSION}"
                 }
             }
         }
@@ -40,23 +82,27 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline SUCCESS for ${env.VERSION}"
+            script {
+                def actionType = params.ROLLBACK ? "rollback" : "deploy"
 
-            sh """
-              curl -X POST http://54.196.169.186/api/artifacts \
-                -H "Content-Type: application/json" \
-                -d '{
-                  "serviceName": "${env.SERVICE_NAME}",
-                  "environment": "${env.BRANCH_NAME}",
-                  "version": "${env.VERSION}",
-                  "artifactType": "docker",
-                  "artifactId": "myrepo/${env.SERVICE_NAME}:${env.VERSION}",
-                  "commitSha": "${env.COMMIT_SHA}",
-                  "pipeline": "jenkins",
-                  "action":"deploy",
-                  "status": "success"
-                }'
-            """
+                echo "✅ Pipeline SUCCESS for ${env.VERSION} (${actionType})"
+
+                sh """
+                  curl -X POST http://34.224.213.33/api/artifacts \
+                    -H "Content-Type: application/json" \
+                    -d '{
+                      "serviceName": "${env.SERVICE_NAME}",
+                      "environment": "${env.BRANCH_NAME}",
+                      "version": "${env.VERSION}",
+                      "artifactType": "docker",
+                      "artifactId": "myrepo/${env.SERVICE_NAME}:${env.VERSION}",
+                      "commitSha": "${env.COMMIT_SHA ?: ""}",
+                      "pipeline": "jenkins",
+                      "action": "${actionType}",
+                      "status": "success"
+                    }'
+                """
+            }
         }
 
         failure {

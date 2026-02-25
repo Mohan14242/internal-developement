@@ -7,4 +7,3 @@ templateVersion: v1
 deploytype: microservice
 environments: [dev,test,prod]
 enableWebhook: true
-

@@ -1,1 +1,91 @@
-name: this is microservice architecture
+name: Practice Deploy Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      rollback:
+        description: "Enable rollback"
+        required: false
+        default: "false"
+      rollback_version:
+        description: "Version to rollback to"
+        required: false
+        default: ""
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Load project configuration
+        run: |
+          if [ ! -f config.json ]; then
+            echo "config.json not found"
+            exit 1
+          fi
+
+          SERVICE_NAME=$(jq -r '.serviceName' config.json)
+          echo "SERVICE_NAME=$SERVICE_NAME" >> $GITHUB_ENV
+
+          echo "Loaded SERVICE_NAME=$SERVICE_NAME"
+
+      # ================= NORMAL DEPLOY =================
+
+      - name: Generate version
+        if: ${{ inputs.rollback != 'true' }}
+        run: |
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          VERSION="${SERVICE_NAME}-${COMMIT_SHA}"
+
+          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+          echo "Generated VERSION=$VERSION"
+
+      - name: Simulate deploy
+        if: ${{ inputs.rollback != 'true' }}
+        run: |
+          echo "🚀 Simulating deployment"
+          echo "Service: $SERVICE_NAME"
+          echo "Environment: ${GITHUB_REF_NAME}"
+          echo "Version: $VERSION"
+
+      # ================= ROLLBACK =================
+
+      - name: Simulate rollback
+        if: ${{ inputs.rollback == 'true' && inputs.rollback_version != '' }}
+        run: |
+          VERSION="${{ inputs.rollback_version }}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+          echo "🔄 Simulating rollback"
+          echo "Service: $SERVICE_NAME"
+          echo "Environment: ${GITHUB_REF_NAME}"
+          echo "Rollback Version: $VERSION"
+
+      # ================= REPORT TO PLATFORM =================
+
+      - name: Notify platform (success)
+        if: success()
+        run: |
+          ACTION_TYPE="deploy"
+          if [ "${{ inputs.rollback }}" = "true" ]; then
+            ACTION_TYPE="rollback"
+          fi
+
+          curl -X POST http://34.224.213.33/api/artifacts \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"serviceName\": \"$SERVICE_NAME\",
+              \"environment\": \"${GITHUB_REF_NAME}\",
+              \"version\": \"$VERSION\",
+              \"artifactType\": \"docker\",
+              \"artifactId\": \"myrepo/$SERVICE_NAME:$VERSION\",
+              \"commitSha\": \"${COMMIT_SHA:-}\" ,
+              \"pipeline\": \"github\",
+              \"action\": \"$ACTION_TYPE\",
+              \"status\": \"success\"
+            }"
