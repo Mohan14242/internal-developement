@@ -267,27 +267,65 @@ func TriggerJenkinsDeploy(jobName, branch string) error {
 
 
 
-func TriggerJenkinsRollback(serviceName, environment, version string) error {
-	jenkinsURL := os.Getenv("JENKINS_URL")
-	token := os.Getenv("JENKINS_API_TOKEN")
+func TriggerJenkinsRollback(serviceName, branch, version string) error {
+	jenkinsURL := strings.TrimRight(os.Getenv("JENKINS_URL"), "/")
+	user := os.Getenv("JENKINS_USER")
+	apiToken := os.Getenv("JENKINS_API_TOKEN")
 
-	url := fmt.Sprintf(
-		"%s/job/%s/buildWithParameters?token=%s&ROLLBACK=true&ROLLBACK_VERSION=%s&ENVIRONMENT=%s",
+	client := &http.Client{}
+
+	/* 1️⃣ GET CRUMB */
+	crumbURL := fmt.Sprintf("%s/crumbIssuer/api/json", jenkinsURL)
+
+	crumbReq, _ := http.NewRequest("GET", crumbURL, nil)
+	crumbReq.SetBasicAuth(user, apiToken)
+
+	crumbResp, err := client.Do(crumbReq)
+	if err != nil {
+		return err
+	}
+	defer crumbResp.Body.Close()
+
+	var crumbData struct {
+		Crumb             string `json:"crumb"`
+		CrumbRequestField string `json:"crumbRequestField"`
+	}
+
+	if err := json.NewDecoder(crumbResp.Body).Decode(&crumbData); err != nil {
+		return err
+	}
+
+	/* 2️⃣ SEND PARAMETERS */
+	formData := url.Values{}
+	formData.Set("ROLLBACK", "true")
+	formData.Set("ROLLBACK_VERSION", version)
+
+	buildURL := fmt.Sprintf(
+		"%s/job/%s/job/%s/buildWithParameters",
 		jenkinsURL,
 		serviceName,
-		token,
-		version,
-		environment,
+		branch,
 	)
 
-	resp, err := http.Post(url, "", nil)
+	req, err := http.NewRequest("POST", buildURL, strings.NewReader(formData.Encode()))
+	if err != nil {
+		return err
+	}
+
+	req.SetBasicAuth(user, apiToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set(crumbData.CrumbRequestField, crumbData.Crumb)
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("jenkins rollback trigger failed: %s", resp.Status)
+	if resp.StatusCode != 201 && resp.StatusCode != 302 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("jenkins rollback failed: %s - %s",
+			resp.Status, string(body))
 	}
 
 	return nil
