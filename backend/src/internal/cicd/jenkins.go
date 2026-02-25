@@ -173,7 +173,7 @@ func (j *JenkinsClient) CreateMultibranchJob(
 
 func TriggerJenkinsDeploy(jobName, branch string) error {
 	jenkinsURL := os.Getenv("JENKINS_URL")
-	token := os.Getenv("JENKINS_TOKEN")
+	token := os.Getenv("JENKINS_API_TOKEN")
 
 	url := fmt.Sprintf(
 		"%s/job/%s/buildWithParameters?token=%s&branch=%s",
@@ -196,7 +196,7 @@ func TriggerJenkinsDeploy(jobName, branch string) error {
 
 func TriggerJenkinsRollback(serviceName, environment, version string) error {
 	jenkinsURL := os.Getenv("JENKINS_URL")
-	token := os.Getenv("JENKINS_TOKEN")
+	token := os.Getenv("JENKINS_API_TOKEN")
 
 	url := fmt.Sprintf(
 		"%s/job/%s/buildWithParameters?token=%s&ROLLBACK=true&ROLLBACK_VERSION=%s&ENVIRONMENT=%s",
