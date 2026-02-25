@@ -63,10 +63,6 @@ func validateArtifactRequest(req model.ArtifactEvent) error {
 	if req.Version == "" {
 		return errors.New("version is required")
 	}
-	if req.ArtifactID == "" {
-		return errors.New("artifactId is required")
-	}
-
 	if req.Action != "deploy" && req.Action != "rollback" {
 		return errors.New("action must be deploy or rollback")
 	}
