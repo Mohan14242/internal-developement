@@ -18,7 +18,7 @@ func main() {
 	http.HandleFunc("/services", handler.GetServices)
 	http.HandleFunc("/services/", handler.DeployService)
 	http.HandleFunc("/artifacts", handler.RegisterArtifact)
-	http.HandleFunc("/api/services/", handler.GetServiceDashboard)
+	http.HandleFunc("/servicesdashboard/", handler.GetServiceDashboard)
 	http.HandleFunc("/service-by-env/", handler.GetServiceEnvironments)
 	http.HandleFunc("/artifact-by-env/", handler.GetServiceArtifacts)
 	http.HandleFunc("/deploy-services/", handler.DeployServices)

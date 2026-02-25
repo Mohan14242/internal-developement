@@ -37,7 +37,7 @@ func GetServiceDashboard(w http.ResponseWriter, r *http.Request) {
 	// 🔍 Extract serviceName from URL
 	// Expected: /api/services/{serviceName}/dashboard
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) != 3 || parts[0] != "services" || parts[2] != "dashboard" {
+	if len(parts) != 3 || parts[0] != "servicesdashboard" || parts[2] != "dashboard" {
 		http.Error(w, "invalid URL", http.StatusBadRequest)
 		return
 	}
