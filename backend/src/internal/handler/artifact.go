@@ -93,7 +93,6 @@ func saveArtifact(a model.ArtifactEvent) error {
 		a.Environment,
 		a.Version,
 		a.ArtifactType,
-		a.ArtifactID,
 		a.CommitSHA,
 		a.Pipeline,
 		a.Action,
@@ -111,7 +110,6 @@ func saveArtifact(a model.ArtifactEvent) error {
 		a.ServiceName,
 		a.Environment,
 		a.Version,
-		a.ArtifactID,
 		"success",
 		time.Now(),
 	)
