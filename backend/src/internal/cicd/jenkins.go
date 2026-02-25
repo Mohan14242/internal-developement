@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"io"
 )
 
 type JenkinsClient struct {
