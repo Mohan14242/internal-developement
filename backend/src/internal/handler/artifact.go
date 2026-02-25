@@ -88,7 +88,7 @@ func saveArtifact(a model.ArtifactEvent) error {
 		INSERT INTO artifacts
 		(service_name, environment, version, artifact_type,
 		 commit_sha, pipeline, action)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		a.ServiceName,
 		a.Environment,
 		a.Version,
@@ -106,7 +106,7 @@ func saveArtifact(a model.ArtifactEvent) error {
 		REPLACE INTO environment_state
 		(service_name, environment, version,
 		 status, deployed_at)
-		VALUES (?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?)`,
 		a.ServiceName,
 		a.Environment,
 		a.Version,
