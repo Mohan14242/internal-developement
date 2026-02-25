@@ -173,14 +173,22 @@ func (j *JenkinsClient) CreateMultibranchJob(
 
 func TriggerJenkinsDeploy(jobName, branch string) error {
 	jenkinsURL := os.Getenv("JENKINS_URL")
-	token := os.Getenv("JENKINS_API_TOKEN")
+	user := os.Getenv("JENKINS_USER")
+	apiToken := os.Getenv("JENKINS_API_TOKEN")
 
 	url := fmt.Sprintf(
-		"%s/job/%s/buildWithParameters?token=%s&branch=%s",
-		jenkinsURL, jobName, token, branch,
+		"%s/job/%s/buildWithParameters?branch=%s",
+		jenkinsURL, jobName, branch,
 	)
 
-	resp, err := http.Post(url, "", nil)
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		return err
+	}
+
+	req.SetBasicAuth(user, apiToken)
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
