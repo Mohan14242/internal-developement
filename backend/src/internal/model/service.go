@@ -58,7 +58,6 @@ type ArtifactEvent struct {
 	Environment  string `json:"environment"`
 	Version      string `json:"version"`
 	ArtifactType string `json:"artifactType"`
-	ArtifactID   string `json:"artifactId"`
 	CommitSHA    string `json:"commitSha"`
 	Pipeline     string `json:"pipeline"`
 	Action       string `json:"action"`   // deploy | rollback
