@@ -38,7 +38,7 @@ func GetServiceArtifacts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := db.DB.Query(
-		`SELECT version, artifact_id, created_at
+		`SELECT version,created_at
 		 FROM artifacts
 		 WHERE service_name = ? AND environment = ?
 		 ORDER BY created_at DESC`,

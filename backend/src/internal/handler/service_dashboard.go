@@ -45,7 +45,7 @@ func GetServiceDashboard(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := db.DB.QueryContext(
 		ctx,
-		`SELECT environment, version, artifact_id, status, deployed_at
+		`SELECT environment, version, status, deployed_at
 		 FROM environment_state
 		 WHERE service_name = ?`,
 		serviceName,

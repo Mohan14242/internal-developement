@@ -91,7 +91,7 @@ func saveArtifact(a model.ArtifactEvent) error {
 	_, err = tx.Exec(`
 		INSERT INTO artifacts
 		(service_name, environment, version, artifact_type,
-		 artifact_id, commit_sha, pipeline, action)
+		 commit_sha, pipeline, action)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		a.ServiceName,
 		a.Environment,
@@ -110,7 +110,7 @@ func saveArtifact(a model.ArtifactEvent) error {
 	_, err = tx.Exec(`
 		REPLACE INTO environment_state
 		(service_name, environment, version,
-		 artifact_id, status, deployed_at)
+		 status, deployed_at)
 		VALUES (?, ?, ?, ?, ?, ?)`,
 		a.ServiceName,
 		a.Environment,

@@ -101,9 +101,8 @@ jobs:
             -d "{
               \"serviceName\": \"$SERVICE_NAME\",
               \"environment\": \"$ENVIRONMENT\",
-              \"version\": \"$VERSION\",
+              \"version\": \"myrepo/$SERVICE_NAME:$VERSION\",
               \"artifactType\": \"docker\",
-              \"artifactId\": \"myrepo/$SERVICE_NAME:$VERSION\",
               \"commitSha\": \"${COMMIT_SHA:-}\" ,
               \"pipeline\": \"github\",
               \"action\": \"$ACTION_TYPE\",

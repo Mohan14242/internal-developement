@@ -15,7 +15,6 @@ pipeline {
     }
 
     stages {
-
         stage('Load Project Configuration') {
             steps {
                 script {
@@ -111,9 +110,8 @@ pipeline {
                     -d '{
                       "serviceName": "${env.SERVICE_NAME}",
                       "environment": "${env.ENVIRONMENT}",
-                      "version": "${env.VERSION}",
+                      "version": "myrepo/${env.SERVICE_NAME}:${env.VERSION}",
                       "artifactType": "docker",
-                      "artifactId": "myrepo/${env.SERVICE_NAME}:${env.VERSION}",
                       "commitSha": "${env.COMMIT_SHA ?: ""}",
                       "pipeline": "jenkins",
                       "action": "${actionType}",

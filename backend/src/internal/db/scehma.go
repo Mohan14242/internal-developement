@@ -70,10 +70,8 @@ func EnsureSchema() error {
 		service_name VARCHAR(150) NOT NULL,
 		environment VARCHAR(20) NOT NULL,
 
-		version VARCHAR(255) NOT NULL,
+		version VARCHAR(255) NOT NULL,  -- image:tag or ami-id
 		artifact_type VARCHAR(20) NOT NULL, -- docker | ami
-		artifact_id VARCHAR(255) NOT NULL,  -- image:tag or ami-id
-
 		commit_sha VARCHAR(40) NULL,
 		pipeline VARCHAR(30) NULL,          -- jenkins | github
 		action VARCHAR(20) NOT NULL,        -- deploy | rollback
@@ -92,11 +90,8 @@ func EnsureSchema() error {
 		environment VARCHAR(20) NOT NULL,
 
 		version VARCHAR(255) NOT NULL,
-		artifact_id VARCHAR(255) NOT NULL,
 		status VARCHAR(20) NOT NULL DEFAULT 'success',
-
 		deployed_at TIMESTAMP NOT NULL,
-
 		PRIMARY KEY (service_name, environment),
 		INDEX idx_env_state_service (service_name)
 	);`

@@ -86,3 +86,5 @@ func DeployServices(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 	w.Write([]byte(`{"message":"deployment triggered"}`))
 }
+
+
