@@ -23,7 +23,7 @@ func RollbackService(w http.ResponseWriter, r *http.Request) {
 
 	// /services/{serviceName}/rollback
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) != 3  || parts[0] != "services" || parts[2] != "rollback" {
+	if len(parts) != 3  || parts[0] != "rollback-services" || parts[2] != "rollback" {
 		http.Error(w, "invalid path", http.StatusBadRequest)
 		return
 	}
