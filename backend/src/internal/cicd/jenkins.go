@@ -177,7 +177,7 @@ func TriggerJenkinsDeploy(jobName, branch string) error {
 	apiToken := os.Getenv("JENKINS_API_TOKEN")
 
 	url := fmt.Sprintf(
-		"%s/job/%s/buildWithParameters?branch=%s",
+		"%s/job/%s/job/%s/build",
 		jenkinsURL, jobName, branch,
 	)
 
