@@ -32,6 +32,26 @@ jobs:
 
           echo "Loaded SERVICE_NAME=$SERVICE_NAME"
 
+      # ================= DETECT ENVIRONMENT =================
+
+      - name: Detect environment
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+
+          if [ "$BRANCH" = "dev" ]; then
+            ENVIRONMENT="dev"
+          elif [ "$BRANCH" = "test" ]; then
+            ENVIRONMENT="test"
+          elif [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+            ENVIRONMENT="prod"
+          else
+            echo "Unsupported branch: $BRANCH"
+            exit 1
+          fi
+
+          echo "ENVIRONMENT=$ENVIRONMENT" >> $GITHUB_ENV
+          echo "ENVIRONMENT resolved as $ENVIRONMENT"
+
       # ================= NORMAL DEPLOY =================
 
       - name: Generate version
@@ -50,7 +70,7 @@ jobs:
         run: |
           echo "🚀 Simulating deployment"
           echo "Service: $SERVICE_NAME"
-          echo "Environment: ${GITHUB_REF_NAME}"
+          echo "Environment: $ENVIRONMENT"
           echo "Version: $VERSION"
 
       # ================= ROLLBACK =================
@@ -63,10 +83,10 @@ jobs:
 
           echo "🔄 Simulating rollback"
           echo "Service: $SERVICE_NAME"
-          echo "Environment: ${GITHUB_REF_NAME}"
+          echo "Environment: $ENVIRONMENT"
           echo "Rollback Version: $VERSION"
 
-      # ================= REPORT TO PLATFORM =================
+      # ================= NOTIFY PLATFORM =================
 
       - name: Notify platform (success)
         if: success()
@@ -80,7 +100,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{
               \"serviceName\": \"$SERVICE_NAME\",
-              \"environment\": \"${GITHUB_REF_NAME}\",
+              \"environment\": \"$ENVIRONMENT\",
               \"version\": \"$VERSION\",
               \"artifactType\": \"docker\",
               \"artifactId\": \"myrepo/$SERVICE_NAME:$VERSION\",

@@ -34,6 +34,24 @@ pipeline {
             }
         }
 
+        stage('Detect Environment') {
+            steps {
+                script {
+                    if (env.BRANCH_NAME == 'dev') {
+                        env.ENVIRONMENT = 'dev'
+                    } else if (env.BRANCH_NAME == 'test') {
+                        env.ENVIRONMENT = 'test'
+                    } else if (env.BRANCH_NAME in ['main', 'master']) {
+                        env.ENVIRONMENT = 'prod'
+                    } else {
+                        error "Unsupported branch: ${env.BRANCH_NAME}"
+                    }
+
+                    echo "ENVIRONMENT = ${env.ENVIRONMENT}"
+                }
+            }
+        }
+
         /* ================= NORMAL DEPLOY ================= */
 
         stage("Generate Version") {
@@ -58,7 +76,7 @@ pipeline {
                 expression { !params.ROLLBACK }
             }
             steps {
-                echo "🚀 Simulating deployment of ${env.VERSION} to ${env.BRANCH_NAME}"
+                echo "🚀 Simulating deployment of ${env.VERSION} to ${env.ENVIRONMENT}"
             }
         }
 
@@ -74,7 +92,7 @@ pipeline {
             steps {
                 script {
                     env.VERSION = params.ROLLBACK_VERSION
-                    echo "🔄 Simulating rollback to version ${env.VERSION}"
+                    echo "🔄 Simulating rollback to version ${env.VERSION} in ${env.ENVIRONMENT}"
                 }
             }
         }
@@ -92,7 +110,7 @@ pipeline {
                     -H "Content-Type: application/json" \
                     -d '{
                       "serviceName": "${env.SERVICE_NAME}",
-                      "environment": "${env.BRANCH_NAME}",
+                      "environment": "${env.ENVIRONMENT}",
                       "version": "${env.VERSION}",
                       "artifactType": "docker",
                       "artifactId": "myrepo/${env.SERVICE_NAME}:${env.VERSION}",
