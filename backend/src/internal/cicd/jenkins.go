@@ -173,58 +173,96 @@ func (j *JenkinsClient) CreateMultibranchJob(
 
 
 func TriggerJenkinsDeploy(jobName, branch string) error {
-	jenkinsURL := os.Getenv("JENKINS_URL")
+	jenkinsURL := strings.TrimRight(os.Getenv("JENKINS_URL"), "/")
 	user := os.Getenv("JENKINS_USER")
 	apiToken := os.Getenv("JENKINS_API_TOKEN")
 
-	// 1️⃣ Get Crumb
+	if jenkinsURL == "" || user == "" || apiToken == "" {
+		return fmt.Errorf("jenkins environment variables not set")
+	}
+
+	client := &http.Client{}
+
+	/* =========================
+	   1️⃣  GET CRUMB
+	========================= */
 	crumbURL := fmt.Sprintf("%s/crumbIssuer/api/json", jenkinsURL)
-	crumbReq, _ := http.NewRequest("GET", crumbURL, nil)
+
+	crumbReq, err := http.NewRequest("GET", crumbURL, nil)
+	if err != nil {
+		return err
+	}
 	crumbReq.SetBasicAuth(user, apiToken)
 
-	crumbResp, err := http.DefaultClient.Do(crumbReq)
+	crumbResp, err := client.Do(crumbReq)
 	if err != nil {
 		return err
 	}
 	defer crumbResp.Body.Close()
 
+	if crumbResp.StatusCode >= 300 {
+		body, _ := io.ReadAll(crumbResp.Body)
+		return fmt.Errorf("failed to get crumb: %s - %s",
+			crumbResp.Status, string(body))
+	}
+
 	var crumbData struct {
 		Crumb             string `json:"crumb"`
 		CrumbRequestField string `json:"crumbRequestField"`
 	}
+
 	if err := json.NewDecoder(crumbResp.Body).Decode(&crumbData); err != nil {
 		return err
 	}
 
-	// 2️⃣ Build URL (Multibranch)
+	/* =========================
+	   2️⃣  PREPARE PARAMETERS
+	========================= */
+
+	formData := url.Values{}
+	formData.Set("ROLLBACK", "false")
+	formData.Set("ROLLBACK_VERSION", "")
+
+	/* =========================
+	   3️⃣  BUILD MULTIBRANCH URL
+	========================= */
+
 	buildURL := fmt.Sprintf(
-		"%s/job/%s/job/%s/build",
-		jenkinsURL, jobName, branch,
+		"%s/job/%s/job/%s/buildWithParameters",
+		jenkinsURL,
+		jobName,
+		branch,
 	)
 
-	req, err := http.NewRequest("POST", buildURL, nil)
+	req, err := http.NewRequest("POST", buildURL, strings.NewReader(formData.Encode()))
 	if err != nil {
 		return err
 	}
 
 	req.SetBasicAuth(user, apiToken)
-
-	// 🔥 Add Crumb Header
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set(crumbData.CrumbRequestField, crumbData.Crumb)
 
-	resp, err := http.DefaultClient.Do(req)
+	/* =========================
+	   4️⃣  TRIGGER BUILD
+	========================= */
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 300 {
+	if resp.StatusCode != 201 && resp.StatusCode != 302 {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("jenkins trigger failed: %s - %s", resp.Status, string(body))
+		return fmt.Errorf("jenkins trigger failed: %s - %s",
+			resp.Status, string(body))
 	}
 
+	fmt.Println("✅ Jenkins build triggered successfully")
 	return nil
 }
+
 
 
 
