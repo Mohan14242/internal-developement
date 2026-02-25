@@ -13,7 +13,6 @@ import (
 
 type EnvironmentDashboard struct {
 	CurrentVersion *string    `json:"currentVersion"`
-	ArtifactID     *string    `json:"artifactId"`
 	Status         string     `json:"status"`
 	DeployedAt     *time.Time `json:"deployedAt"`
 }
@@ -74,19 +73,17 @@ func GetServiceDashboard(w http.ResponseWriter, r *http.Request) {
 		var (
 			env        string
 			version    sql.NullString
-			artifactID sql.NullString
 			status     string
 			deployedAt sql.NullTime
 		)
 
-		if err := rows.Scan(&env, &version, &artifactID, &status, &deployedAt); err != nil {
+		if err := rows.Scan(&env, &version, &status, &deployedAt); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		resp.Environments[env] = EnvironmentDashboard{
 			CurrentVersion: nullableString(version),
-			ArtifactID:     nullableString(artifactID),
 			Status:         status,
 			DeployedAt:     nullableTime(deployedAt),
 		}
@@ -105,7 +102,6 @@ func GetServiceDashboard(w http.ResponseWriter, r *http.Request) {
 func emptyEnv() EnvironmentDashboard {
 	return EnvironmentDashboard{
 		CurrentVersion: nil,
-		ArtifactID:     nil,
 		Status:         "not_deployed",
 		DeployedAt:     nil,
 	}

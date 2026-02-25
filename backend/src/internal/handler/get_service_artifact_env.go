@@ -11,7 +11,6 @@ import (
 
 type ArtifactResponse struct {
 	Version    string    `json:"version"`
-	ArtifactID string    `json:"artifactId"`
 	CreatedAt  time.Time `json:"createdAt"`
 }
 
@@ -54,7 +53,7 @@ func GetServiceArtifacts(w http.ResponseWriter, r *http.Request) {
 
 	for rows.Next() {
 		var a ArtifactResponse
-		if err := rows.Scan(&a.Version, &a.ArtifactID, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.Version, &a.CreatedAt); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
