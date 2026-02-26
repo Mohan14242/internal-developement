@@ -86,13 +86,13 @@ func ApproveDeployment(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	var service, env, version string
+	var service, env string
 
 	err = tx.QueryRow(`
 		SELECT service_name, environment
 		FROM deployment_approals
 		WHERE id = ? AND status = 'pending'
-	`, id).Scan(&service, &env, &version)
+	`, id).Scan(&service, &env)
 
 	if err == sql.ErrNoRows {
 		http.Error(w, "approval not found or already processed", 404)
@@ -104,7 +104,7 @@ func ApproveDeployment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("[APPROVAL] Approving service=%s env=%s version=%s\n",
-		service, env, version)
+		service, env)
 
 	_, err = tx.Exec(`
 		UPDATE deployment_approals
@@ -116,17 +116,45 @@ func ApproveDeployment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 🚀 Trigger CICD ONLY AFTER APPROVAL
-	err = cicd.TriggerDeploy(service, env, version)
-	if err != nil {
-		http.Error(w, "failed to trigger deployment", 500)
+	if err := tx.Commit(); err != nil {
+		http.Error(w, "failed to commit approval", 500)
 		return
 	}
 
-	tx.Commit()
-	w.WriteHeader(http.StatusOK)
-}
+	var cicdType, repo string
+	err := db.DB.QueryRow(`
+		SELECT cicd_type, repo_name
+		FROM services
+		WHERE service_name = ?`,
+		serviceName,
+	).Scan(&cicdType, &repo)
+	if err != nil {
+		http.Error(w, "service not found", http.StatusNotFound)
+		return
+	}
+	log.Printf("Selecting the pipeline type and triggering the deployment")
+	// 🚀 Trigger correct CICD
+	switch cicdType {
+	case "jenkins":
+		err = cicd.TriggerJenkinsDeploy(serviceName, branch)
 
+	case "github":
+		err = cicd.TriggerGitHubDeploy(repo, branch)
+
+	default:
+		http.Error(w, "unsupported cicd type", http.StatusBadRequest)
+		return
+	}
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"message":"production deployment triggered"}`))
+
+}
 
 func RejectDeployment(w http.ResponseWriter, r *http.Request) {
 	log.Println("[APPROVAL] Reject request received")
@@ -148,6 +176,7 @@ func RejectDeployment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"message":"production deployment rejected"}`))
 }
 
 func extractApprovalID(path string) (int64, error) {

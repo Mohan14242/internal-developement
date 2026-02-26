@@ -13,6 +13,7 @@ type DeployRequest struct {
 	Environment string `json:"environment"`
 }
 
+
 func DeployServices(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -114,5 +115,8 @@ func DeployServices(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 	w.Write([]byte(`{"message":"deployment triggered"}`))
 }
+
+
+
 
 
