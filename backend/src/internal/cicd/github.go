@@ -151,7 +151,7 @@ func TriggerGitHubDeploy(repo, branch string) error {
 		return err
 	}
 
-	workflow := "cicd.yml"
+	workflow := "cicd.yaml"
 
 	payload := map[string]interface{}{
 		"ref": branch,
@@ -203,7 +203,7 @@ func TriggerGitHubDeploy(repo, branch string) error {
 
 func TriggerGitHubRollback(repo, environment, version string) error {
 	token, err := aws.GetGitToken("git-secrete")
-	workflow := "cicd.yml" // same workflow, handles rollback via inputs
+	workflow := "cicd.yaml" // same workflow, handles rollback via inputs
 	payload := map[string]interface{}{
 		"ref": environmentBranch(environment),
 		"inputs": map[string]string{
