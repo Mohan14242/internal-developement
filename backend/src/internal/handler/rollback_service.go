@@ -58,6 +58,28 @@ func RollbackService(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid version for environment", http.StatusBadRequest)
 		return
 	}
+
+	// 🔍 Get current running version from environment_state
+	var currentVersion string
+
+	err = db.DB.QueryRow(`
+		SELECT version 
+		FROM environment_state
+		WHERE service_name = ? AND environment = ?
+	`,
+		serviceName, req.Environment,
+	).Scan(&currentVersion)
+
+	if err != nil {
+		http.Error(w, "failed to fetch current environment state", http.StatusInternalServerError)
+		return
+	}
+
+	// 🚫 Prevent rollback to same version
+	if currentVersion == req.Version {
+		http.Error(w, "this is the current running version", http.StatusBadRequest)
+		return
+	}
 	// 🔍 Get CICD type & repo info
 	var cicdType, owner, repo string
 	err = db.DB.QueryRow(`
@@ -70,9 +92,9 @@ func RollbackService(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "service not found", http.StatusNotFound)
 		return
 	}
+
 	// 🚀 Trigger rollback via CICD
 	switch cicdType {
-
 	case "jenkins":
 		err = cicd.TriggerJenkinsRollback(serviceName, req.Environment, req.Version)
 
@@ -83,7 +105,6 @@ func RollbackService(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unsupported cicd type", http.StatusBadRequest)
 		return
 	}
-
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
