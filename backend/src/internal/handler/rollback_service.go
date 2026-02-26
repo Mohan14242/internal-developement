@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 
@@ -15,28 +16,42 @@ type RollbackRequest struct {
 }
 
 func RollbackService(w http.ResponseWriter, r *http.Request) {
+	log.Println("[ROLLBACK] Incoming request")
+
 	// 🔒 Allow POST only
 	if r.Method != http.MethodPost {
+		log.Printf("[ROLLBACK][WARN] Invalid method: %s\n", r.Method)
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// /services/{serviceName}/rollback
+	// /rollback-services/{serviceName}/rollback
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) != 3  || parts[0] != "rollback-services" || parts[2] != "rollback" {
+	if len(parts) != 3 || parts[0] != "rollback-services" || parts[2] != "rollback" {
+		log.Printf("[ROLLBACK][WARN] Invalid path: %s\n", r.URL.Path)
 		http.Error(w, "invalid path", http.StatusBadRequest)
 		return
 	}
 	serviceName := parts[1]
+	log.Printf("[ROLLBACK] Service: %s\n", serviceName)
 
 	// Decode body
 	var req RollbackRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("[ROLLBACK][ERROR] Invalid request body: %v\n", err)
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
+	log.Printf(
+		"[ROLLBACK] Request payload: service=%s env=%s version=%s\n",
+		serviceName,
+		req.Environment,
+		req.Version,
+	)
+
 	if req.Environment == "" || req.Version == "" {
+		log.Printf("[ROLLBACK][WARN] Missing environment or version\n")
 		http.Error(w, "environment and version are required", http.StatusBadRequest)
 		return
 	}
@@ -51,19 +66,25 @@ func RollbackService(w http.ResponseWriter, r *http.Request) {
 		serviceName, req.Environment, req.Version,
 	).Scan(&exists)
 	if err != nil {
+		log.Printf("[ROLLBACK][ERROR] DB error checking artifact: %v\n", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if !exists {
+		log.Printf(
+			"[ROLLBACK][WARN] Artifact not found: service=%s env=%s version=%s\n",
+			serviceName,
+			req.Environment,
+			req.Version,
+		)
 		http.Error(w, "invalid version for environment", http.StatusBadRequest)
 		return
 	}
 
-	// 🔍 Get current running version from environment_state
+	// 🔍 Get current running version
 	var currentVersion string
-
 	err = db.DB.QueryRow(`
-		SELECT version 
+		SELECT version
 		FROM environment_state
 		WHERE service_name = ? AND environment = ?
 	`,
@@ -71,48 +92,101 @@ func RollbackService(w http.ResponseWriter, r *http.Request) {
 	).Scan(&currentVersion)
 
 	if err != nil {
+		log.Printf(
+			"[ROLLBACK][ERROR] Failed to fetch current version: service=%s env=%s err=%v\n",
+			serviceName,
+			req.Environment,
+			err,
+		)
 		http.Error(w, "failed to fetch current environment state", http.StatusInternalServerError)
 		return
 	}
 
+	log.Printf(
+		"[ROLLBACK] Current version: %s | Requested version: %s\n",
+		currentVersion,
+		req.Version,
+	)
+
 	// 🚫 Prevent rollback to same version
 	if currentVersion == req.Version {
+		log.Printf(
+			"[ROLLBACK][WARN] Rollback blocked (same version): service=%s env=%s version=%s\n",
+			serviceName,
+			req.Environment,
+			req.Version,
+		)
 		http.Error(w, "this is the current running version", http.StatusBadRequest)
 		return
 	}
+
 	// 🔍 Get CICD type & repo info
 	var cicdType, repo string
 	err = db.DB.QueryRow(`
 		SELECT cicd_type, repo_name
 		FROM services
-		WHERE service_name = ?`,
+		WHERE service_name = ?
+	`,
 		serviceName,
 	).Scan(&cicdType, &repo)
 	if err != nil {
+		log.Printf("[ROLLBACK][ERROR] Service not found: %s\n", serviceName)
 		http.Error(w, "service not found", http.StatusNotFound)
 		return
 	}
 
+	log.Printf(
+		"[ROLLBACK] CICD type=%s repo=%s\n",
+		cicdType,
+		repo,
+	)
+
 	// 🚀 Trigger rollback via CICD
 	switch cicdType {
 	case "jenkins":
+		log.Printf(
+			"[ROLLBACK] Triggering Jenkins rollback: service=%s env=%s version=%s\n",
+			serviceName,
+			req.Environment,
+			req.Version,
+		)
 		err = cicd.TriggerJenkinsRollback(serviceName, req.Environment, req.Version)
 
 	case "github":
-		err = cicd.TriggerGitHubRollback( repo, req.Environment, req.Version)
+		log.Printf(
+			"[ROLLBACK] Triggering GitHub rollback: repo=%s env=%s version=%s\n",
+			repo,
+			req.Environment,
+			req.Version,
+		)
+		err = cicd.TriggerGitHubRollback(repo, req.Environment, req.Version)
 
 	default:
+		log.Printf(
+			"[ROLLBACK][WARN] Unsupported CICD type: %s\n",
+			cicdType,
+		)
 		http.Error(w, "unsupported cicd type", http.StatusBadRequest)
 		return
 	}
+
 	if err != nil {
+		log.Printf(
+			"[ROLLBACK][ERROR] CICD trigger failed: %v\n",
+			err,
+		)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Async response
+	log.Printf(
+		"[ROLLBACK][SUCCESS] Rollback triggered: service=%s env=%s version=%s\n",
+		serviceName,
+		req.Environment,
+		req.Version,
+	)
+
 	w.WriteHeader(http.StatusAccepted)
 	w.Write([]byte(`{"message":"rollback triggered"}`))
 }
-
-
