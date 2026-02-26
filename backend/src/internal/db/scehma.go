@@ -126,6 +126,7 @@ func EnsureSchema() error {
 		{"deployments", deploymentsTable},
 		{"artifacts", artifactsTable},
 		{"environment_state", environmentStateTable},
+		{"approvals",approvaltable},
 	}
 
 	for _, t := range tables {
