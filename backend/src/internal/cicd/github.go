@@ -144,7 +144,7 @@ func (g *GitHubClient) CreateWebhook(owner, repo, webhookURL string) error {
 
 
 func TriggerGitHubDeploy(owner, repo, branch string) error {
-	token, err := aws.GetGitToken("git-token")
+	token, err := aws.GetGitToken("git-secrete")
 	workflow := "cicd.yml" // name of workflow file
 	payload := map[string]interface{}{
 		"ref": branch,
@@ -179,7 +179,7 @@ func TriggerGitHubDeploy(owner, repo, branch string) error {
 
 
 func TriggerGitHubRollback(owner, repo, environment, version string) error {
-	token, err := aws.GetGitToken("git-token")
+	token, err := aws.GetGitToken("git-secrete")
 	workflow := "cicd.yml" // same workflow, handles rollback via inputs
 	payload := map[string]interface{}{
 		"ref": environmentBranch(environment),
