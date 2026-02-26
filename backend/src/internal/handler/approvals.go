@@ -121,12 +121,13 @@ func ApproveDeployment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	branch := "master"
 	var cicdType, repo string
 	err := db.DB.QueryRow(`
 		SELECT cicd_type, repo_name
 		FROM services
 		WHERE service_name = ?`,
-		serviceName,
+		service,
 	).Scan(&cicdType, &repo)
 	if err != nil {
 		http.Error(w, "service not found", http.StatusNotFound)
@@ -136,7 +137,7 @@ func ApproveDeployment(w http.ResponseWriter, r *http.Request) {
 	// 🚀 Trigger correct CICD
 	switch cicdType {
 	case "jenkins":
-		err = cicd.TriggerJenkinsDeploy(serviceName, branch)
+		err = cicd.TriggerJenkinsDeploy(service, branch)
 
 	case "github":
 		err = cicd.TriggerGitHubDeploy(repo, branch)
