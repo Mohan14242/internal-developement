@@ -4,10 +4,24 @@ export async function fetchServices() {
   return res.json()
 }
 
-export async function deployService(serviceName, env) {
-  const res = await fetch(`/api/services/${serviceName}/deploy/${env}`, {
-    method: "POST",
+
+// src/api/services.js
+export async function fetchServiceDashboard(serviceName) {
+  const res = await fetch(`/api/servicesdashboard/${serviceName}/dashboard`, {
+    headers: { Accept: "application/json" },
   })
-  if (!res.ok) throw new Error("Deploy failed")
+  if (!res.ok) throw new Error("Failed to fetch service dashboard")
+  return res.json()
 }
+
+export async function deployService(serviceName, environment) {
+  const res = await fetch(`/api/deploy-services/${serviceName}/deploy`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ environment }),
+  })
+  if (!res.ok) throw new Error("Deployment failed")
+  return res.json()
+}
+
 

@@ -1,44 +1,49 @@
 import { useEffect, useState } from "react"
-import { fetchServices, deployService } from "../api/services"
-import { fetchServiceEnvironments } from "../api/serviceApi"
-import deploybutton from "../components/deploybutton"
+import {
+  fetchServices,
+  fetchServiceDashboard,
+  deployService,
+} from "../api/services"
+import DeployButton from "../components/DeployButton"
 import ServiceCard from "../components/ServiceCard"
+
+const DEFAULT_ENVS = ["dev", "test", "prod"]
 
 export default function ServiceDashboard() {
   const [services, setServices] = useState([])
-  const [serviceEnvs, setServiceEnvs] = useState({})
-  const [deploying, setDeploying] = useState({}) // service+env loading state
+  const [dashboards, setDashboards] = useState({})
+  const [deploying, setDeploying] = useState({})
 
-  // Load services + environments
   useEffect(() => {
-    loadServices()
+    init()
   }, [])
 
-  const loadServices = async () => {
-    const data = await fetchServices()
-    setServices(data)
+  async function init() {
+    const serviceList = await fetchServices()
+    setServices(serviceList)
 
-    const envMap = {}
-    for (const svc of data) {
-      const res = await fetchServiceEnvironments(svc.serviceName)
-      envMap[svc.serviceName] = res.environments
+    const dashboardsMap = {}
+
+    for (const svc of serviceList) {
+      const dashboard = await fetchServiceDashboard(
+        svc.serviceName
+      )
+      dashboardsMap[svc.serviceName] = dashboard // can be null
     }
-    setServiceEnvs(envMap)
+
+    setDashboards(dashboardsMap)
   }
 
-  // Deploy handler
   const handleDeploy = async (serviceName, env) => {
     const key = `${serviceName}-${env}`
-    setDeploying((prev) => ({ ...prev, [key]: true }))
+    setDeploying((p) => ({ ...p, [key]: true }))
 
     try {
       await deployService(serviceName, env)
-      alert(`Deployment triggered for ${serviceName} → ${env}`)
-    } catch (err) {
-      alert("Deployment failed to start")
+      alert(`Deployment triggered: ${serviceName} → ${env}`)
     } finally {
-      setDeploying((prev) => ({ ...prev, [key]: false }))
-      await loadServices() // 🔁 refresh statuses
+      setDeploying((p) => ({ ...p, [key]: false }))
+      await init() // refresh
     }
   }
 
@@ -46,43 +51,63 @@ export default function ServiceDashboard() {
     <div>
       <h2>Service Dashboard</h2>
 
-      {services.map((service) => (
-        <div
-          key={service.serviceName}
-          style={{
-            border: "1px solid #ccc",
-            padding: "16px",
-            marginBottom: "16px",
-            borderRadius: "8px",
-          }}
-        >
-          {/* DEPLOY BUTTONS */}
-          <div style={{ marginBottom: "12px" }}>
-            <strong>Deploy:</strong>{" "}
-            {serviceEnvs[service.serviceName]?.map((env) => {
-              const status =
-                service.environments?.[env]?.status || "default"
+      {services.map((svc) => {
+        const dashboard = dashboards[svc.serviceName]
+        const envs =
+          dashboard?.environments
+            ? Object.keys(dashboard.environments)
+            : DEFAULT_ENVS
 
-              const loadingKey = `${service.serviceName}-${env}`
+        return (
+          <div
+            key={svc.serviceName}
+            style={{
+              border: "1px solid #ccc",
+              padding: 16,
+              marginBottom: 16,
+              borderRadius: 8,
+            }}
+          >
+            {/* SERVICE NAME */}
+            <h3>{svc.serviceName}</h3>
 
-              return (
-                <deploybutton
+            {/* DEPLOY BUTTONS (ALWAYS SHOWN) */}
+            <div style={{ marginBottom: 12 }}>
+              {envs.map((env) => (
+                <DeployButton
                   key={env}
                   env={env}
-                  status={status}
-                  loading={deploying[loadingKey]}
+                  status={
+                    dashboard?.environments?.[env]?.status ||
+                    "not_deployed"
+                  }
+                  loading={
+                    deploying[
+                      `${svc.serviceName}-${env}`
+                    ]
+                  }
                   onDeploy={() =>
-                    handleDeploy(service.serviceName, env)
+                    handleDeploy(svc.serviceName, env)
                   }
                 />
-              )
-            })}
-          </div>
+              ))}
+            </div>
 
-          {/* SERVICE DETAILS + ROLLBACK */}
-          <ServiceCard service={service} />
-        </div>
-      ))}
+            {/* DASHBOARD DETAILS */}
+            {dashboard ? (
+              <ServiceCard
+                serviceName={svc.serviceName}
+                dashboard={dashboard}
+              />
+            ) : (
+              <p style={{ color: "#777" }}>
+                Service not deployed yet.  
+                Deploy to initialize dashboard.
+              </p>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

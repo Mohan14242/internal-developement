@@ -1,33 +1,17 @@
-import React from "react"
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom"
-import { CreateServicePage } from "./pages/CreateServicePage"
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom"
 import ServiceDashboard from "./pages/ServiceDashboard"
+import CreateServicePage from "./pages/CreateServicePage"
 
-function App() {
+export default function App() {
   return (
-    <Router>
-      <div className="app-container">
-        <header style={{ marginBottom: "20px" }}>
-          <h1>🚀 Internal Developer Platform</h1>
+    <BrowserRouter>
+      <h1>🚀 Internal Developer Platform</h1>
+      <Link to="/">Dashboard</Link> | <Link to="/create">Create Service</Link>
 
-          {/* Simple Navigation */}
-          <nav style={{ marginTop: "10px" }}>
-            <Link to="/" style={{ marginRight: "15px" }}>
-              Service Dashboard
-            </Link>
-            <Link to="/create">
-              Create Service
-            </Link>
-          </nav>
-        </header>
-
-        <Routes>
-          <Route path="/" element={<ServiceDashboard />} />
-          <Route path="/create" element={<CreateServicePage />} />
-        </Routes>
-      </div>
-    </Router>
+      <Routes>
+        <Route path="/" element={<ServiceDashboard />} />
+        <Route path="/create" element={<CreateServicePage />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
-
-export default App

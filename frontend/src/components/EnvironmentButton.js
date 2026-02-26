@@ -1,14 +1,9 @@
 import { getStatusColor } from "../utils/statusColor"
 
-export default function EnvironmentButton({
-  env,
-  status,
-  onDeploy,
-  onSelect,
-}) {
+export default function EnvironmentButton({ env, status, onSelect }) {
   return (
     <button
-      onClick={() => (onSelect ? onSelect(env) : onDeploy())}
+      onClick={() => onSelect(env)}
       style={{
         marginRight: "8px",
         padding: "6px 10px",
@@ -16,10 +11,9 @@ export default function EnvironmentButton({
         border: "1px solid #ccc",
         backgroundColor: getStatusColor(status),
         color: "white",
-        cursor: "pointer",
       }}
     >
-      {onSelect ? env.toUpperCase() : `Deploy ${env}`}
+      {env.toUpperCase()}
     </button>
   )
 }

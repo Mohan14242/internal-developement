@@ -9,7 +9,7 @@ runtime: go
 environment: dev
 `.trim()
 
-export const CreateServiceFrom = () => {
+export default function  CreateServiceForm ()  {
   const [yamlText, setYamlText] = useState(DEFAULT_YAML)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")

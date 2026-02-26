@@ -1,11 +1,10 @@
-import React from "react"
-import { CreateServiceFrom } from "../components/CreateServiceForm"
+import CreateServiceForm from "../components/CreateServiceForm"
 
-export const CreateServicePage = () => {
+export default function CreateServicePage() {
   return (
-    <div className="page-container">
-      <h2>Create a New Service</h2>
-      <CreateServiceFrom />
-    </div>
+    <>
+      <h2>Create Service</h2>
+      <CreateServiceForm />
+    </>
   )
 }

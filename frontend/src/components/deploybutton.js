@@ -1,21 +1,22 @@
+// src/components/DeployButton.jsx
 import { getStatusColor } from "../utils/statusColor"
 
-export default function deploybutton({ env, status, onDeploy, loading }) {
+export default function DeployButton({ env, status, loading, onDeploy }) {
   return (
     <button
       disabled={loading}
       onClick={onDeploy}
       style={{
-        marginRight: "8px",
+        marginRight: 8,
         padding: "6px 12px",
-        borderRadius: "4px",
-        border: "1px solid #ccc",
-        backgroundColor: loading ? "orange" : getStatusColor(status),
-        color: "white",
+        borderRadius: 4,
+        border: "none",
+        backgroundColor: loading ? "#f39c12" : getStatusColor(status),
+        color: "#fff",
         cursor: loading ? "not-allowed" : "pointer",
       }}
     >
-      {loading ? `Deploying ${env}...` : `Deploy to ${env.toUpperCase()}`}
+      {loading ? `Deploying ${env}` : `Deploy ${env.toUpperCase()}`}
     </button>
   )
 }

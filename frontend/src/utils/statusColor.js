@@ -1,10 +1,13 @@
+// src/utils/statusColor.js
 export function getStatusColor(status) {
   switch (status) {
     case "success":
-      return "green"
+      return "#2ecc71"
     case "failed":
-      return "red"
+      return "#e74c3c"
+    case "deploying":
+      return "#f39c12"
     default:
-      return "gray" // initial state
+      return "#95a5a6"
   }
 }
