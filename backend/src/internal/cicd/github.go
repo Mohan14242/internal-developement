@@ -224,8 +224,8 @@ func TriggerGitHubRollback(repo, environment, version string) error {
 	payload := map[string]interface{}{
 		"ref": ref,
 		"inputs": map[string]string{
-			"rollback_version": "true",
-			"version":          version,
+			"rollback": "true",
+			"rollback_version": version,
 		},
 	}
 
