@@ -15,35 +15,54 @@ export default function ServiceDashboard() {
   const [deploying, setDeploying] = useState({})
 
   useEffect(() => {
-    init()
+    loadServicesAndDashboards()
   }, [])
 
-  async function init() {
+  // ✅ SAFE LOADER (NO STATE WIPE)
+  async function loadServicesAndDashboards() {
     const serviceList = await fetchServices()
     setServices(serviceList)
 
-    const dashboardsMap = {}
+    // 👇 update dashboards PER SERVICE
+    serviceList.forEach(async (svc) => {
+      try {
+        const dashboard = await fetchServiceDashboard(
+          svc.serviceName
+        )
 
-    for (const svc of serviceList) {
-      const dashboard = await fetchServiceDashboard(
-        svc.serviceName
-      )
-      dashboardsMap[svc.serviceName] = dashboard // can be null
-    }
-
-    setDashboards(dashboardsMap)
+        setDashboards((prev) => ({
+          ...prev,
+          [svc.serviceName]: dashboard, // only this service
+        }))
+      } catch {
+        setDashboards((prev) => ({
+          ...prev,
+          [svc.serviceName]: null,
+        }))
+      }
+    })
   }
 
   const handleDeploy = async (serviceName, env) => {
     const key = `${serviceName}-${env}`
-    setDeploying((p) => ({ ...p, [key]: true }))
+
+    setDeploying((prev) => ({ ...prev, [key]: true }))
 
     try {
       await deployService(serviceName, env)
       alert(`Deployment triggered: ${serviceName} → ${env}`)
     } finally {
-      setDeploying((p) => ({ ...p, [key]: false }))
-      await init() // refresh
+      setDeploying((prev) => ({ ...prev, [key]: false }))
+
+      // 🔁 refresh ONLY this service
+      const dashboard = await fetchServiceDashboard(
+        serviceName
+      )
+
+      setDashboards((prev) => ({
+        ...prev,
+        [serviceName]: dashboard,
+      }))
     }
   }
 
@@ -53,6 +72,7 @@ export default function ServiceDashboard() {
 
       {services.map((svc) => {
         const dashboard = dashboards[svc.serviceName]
+
         const envs =
           dashboard?.environments
             ? Object.keys(dashboard.environments)
@@ -71,26 +91,31 @@ export default function ServiceDashboard() {
             {/* SERVICE NAME */}
             <h3>{svc.serviceName}</h3>
 
-            {/* DEPLOY BUTTONS (ALWAYS SHOWN) */}
+            {/* DEPLOY BUTTONS */}
             <div style={{ marginBottom: 12 }}>
-              {envs.map((env) => (
-                <DeployButton
-                  key={env}
-                  env={env}
-                  status={
-                    dashboard?.environments?.[env]?.status ||
-                    "not_deployed"
-                  }
-                  loading={
-                    deploying[
-                      `${svc.serviceName}-${env}`
-                    ]
-                  }
-                  onDeploy={() =>
-                    handleDeploy(svc.serviceName, env)
-                  }
-                />
-              ))}
+              {envs.map((env) => {
+                const status =
+                  dashboard &&
+                  dashboard.serviceName ===
+                    svc.serviceName &&
+                  dashboard.environments?.[env]?.status
+
+                return (
+                  <DeployButton
+                    key={env}
+                    env={env}
+                    status={status ?? "not_deployed"}
+                    loading={
+                      deploying[
+                        `${svc.serviceName}-${env}`
+                      ]
+                    }
+                    onDeploy={() =>
+                      handleDeploy(svc.serviceName, env)
+                    }
+                  />
+                )
+              })}
             </div>
 
             {/* DASHBOARD DETAILS */}
