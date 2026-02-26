@@ -202,45 +202,102 @@ func TriggerGitHubDeploy(repo, branch string) error {
 
 
 func TriggerGitHubRollback(repo, environment, version string) error {
+	log.Println("[GITHUB][ROLLBACK] Starting GitHub rollback trigger")
+
+	// 🔐 Fetch GitHub token
 	token, err := aws.GetGitToken("git-secrete")
-	workflow := "cicd.yaml" // same workflow, handles rollback via inputs
-	payload := map[string]interface{}{
-		"ref": environmentBranch(environment),
-		"inputs": map[string]string{
-			"rollback_version": "true",
-			"version":  version,
-		},
-	}
-	body, _ := json.Marshal(payload)
-	owner, err := git.GetAuthenticatedUser(token)
 	if err != nil {
+		log.Printf("[GITHUB][ROLLBACK][ERROR] Failed to fetch GitHub token: %v\n", err)
 		return err
 	}
-	fmt.Println("Authenticated GitHub User:", owner)
+	log.Println("[GITHUB][ROLLBACK] GitHub token fetched successfully")
 
-	req, _ := http.NewRequest(
+	workflow := "cicd.yaml" // same workflow, handles rollback via inputs
+
+	ref := environmentBranch(environment)
+	log.Printf(
+		"[GITHUB][ROLLBACK] Using ref=%s for environment=%s\n",
+		ref,
+		environment,
+	)
+
+	payload := map[string]interface{}{
+		"ref": ref,
+		"inputs": map[string]string{
+			"rollback_version": "true",
+			"version":          version,
+		},
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("[GITHUB][ROLLBACK][ERROR] Failed to marshal payload: %v\n", err)
+		return err
+	}
+
+	log.Printf(
+		"[GITHUB][ROLLBACK] Dispatch payload: %s\n",
+		string(body),
+	)
+
+	owner, err := git.GetAuthenticatedUser(token)
+	if err != nil {
+		log.Printf("[GITHUB][ROLLBACK][ERROR] Failed to get authenticated GitHub user: %v\n", err)
+		return err
+	}
+
+	log.Printf("[GITHUB][ROLLBACK] Authenticated GitHub user: %s\n", owner)
+
+	url := fmt.Sprintf(
+		"https://api.github.com/repos/%s/%s/actions/workflows/%s/dispatches",
+		owner,
+		repo,
+		workflow,
+	)
+
+	log.Printf("[GITHUB][ROLLBACK] Dispatch URL: %s\n", url)
+
+	req, err := http.NewRequest(
 		"POST",
-		fmt.Sprintf(
-			"https://api.github.com/repos/%s/%s/actions/workflows/%s/dispatches",
-			owner, repo, workflow,
-		),
+		url,
 		bytes.NewBuffer(body),
 	)
+	if err != nil {
+		log.Printf("[GITHUB][ROLLBACK][ERROR] Failed to create HTTP request: %v\n", err)
+		return err
+	}
+
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("Content-Type", "application/json")
 
+	log.Println("[GITHUB][ROLLBACK] Sending request to GitHub")
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
+		log.Printf("[GITHUB][ROLLBACK][ERROR] HTTP request failed: %v\n", err)
 		return err
 	}
 	defer resp.Body.Close()
 
+	log.Printf(
+		"[GITHUB][ROLLBACK] GitHub response status: %s (%d)\n",
+		resp.Status,
+		resp.StatusCode,
+	)
+
 	if resp.StatusCode != http.StatusNoContent {
+		log.Printf(
+			"[GITHUB][ROLLBACK][ERROR] GitHub rejected rollback trigger: status=%s\n",
+			resp.Status,
+		)
 		return fmt.Errorf("github rollback trigger failed: %s", resp.Status)
 	}
+
+	log.Println("[GITHUB][ROLLBACK][SUCCESS] GitHub rollback workflow dispatched successfully")
 	return nil
 }
+
 
 func environmentBranch(env string) string {
 	switch env {
