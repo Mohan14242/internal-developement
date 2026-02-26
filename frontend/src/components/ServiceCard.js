@@ -8,70 +8,167 @@ export default function ServiceCard({ serviceName, dashboard }) {
   const [selectedEnv, setSelectedEnv] = useState("")
   const [artifacts, setArtifacts] = useState([])
   const [selectedVersion, setSelectedVersion] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [loadingArtifacts, setLoadingArtifacts] =
+    useState(false)
+  const [rollingBack, setRollingBack] =
+    useState(false)
 
   const environments = Object.keys(
     dashboard.environments || {}
   )
 
-  // -------- Select environment → load versions ----------
+  /* ================================
+     ENV SELECTION + ARTIFACT FETCH
+     ================================ */
   const handleEnvSelect = async (env) => {
+    console.info(
+      `[UI] Environment selected`,
+      { serviceName, env }
+    )
+
     setSelectedEnv(env)
     setSelectedVersion("")
     setArtifacts([])
-    setLoading(true)
+    setLoadingArtifacts(true)
 
     try {
-      const data = await fetchArtifactsByEnv(serviceName, env)
+      console.debug(
+        `[API] Fetching artifacts`,
+        { serviceName, env }
+      )
 
-      // ✅ backend returns ARRAY directly
-      const artifactsList = Array.isArray(data) ? data : []
+      const data = await fetchArtifactsByEnv(
+        serviceName,
+        env
+      )
 
-      // ✅ sort by createdAt (latest first)
+      console.debug(
+        `[API] Artifacts response`,
+        data
+      )
+
+      const artifactsList = Array.isArray(data)
+        ? data
+        : []
+
       artifactsList.sort(
         (a, b) =>
-          new Date(b.createdAt) - new Date(a.createdAt)
+          new Date(b.createdAt) -
+          new Date(a.createdAt)
       )
 
       setArtifacts(artifactsList)
-    } catch {
+
+      console.info(
+        `[UI] Artifacts loaded`,
+        {
+          serviceName,
+          env,
+          count: artifactsList.length,
+        }
+      )
+    } catch (err) {
+      console.error(
+        `[ERROR] Failed to fetch artifacts`,
+        { serviceName, env, error: err }
+      )
       setArtifacts([])
     } finally {
-      setLoading(false)
+      setLoadingArtifacts(false)
     }
   }
 
-  // -------- Trigger rollback ----------
+  /* ================================
+     ROLLBACK
+     ================================ */
   const handleRollback = async () => {
-    if (!selectedEnv || !selectedVersion) return
+    if (!selectedEnv) {
+      console.warn(
+        `[UI] Rollback blocked: no environment selected`,
+        { serviceName }
+      )
+      alert("Please select an environment")
+      return
+    }
 
-    setLoading(true)
-    try {
-      await rollbackService(serviceName, {
+    if (!selectedVersion) {
+      console.warn(
+        `[UI] Rollback blocked: no version selected`,
+        { serviceName, selectedEnv }
+      )
+      alert("Please select a version to rollback")
+      return
+    }
+
+    console.info(
+      `[UI] Rollback initiated`,
+      {
+        serviceName,
         environment: selectedEnv,
         version: selectedVersion,
-      })
-      alert(
-        `Rollback triggered: ${serviceName} → ${selectedEnv}`
+      }
+    )
+
+    setRollingBack(true)
+
+    try {
+      console.debug(
+        `[API] Calling rollback API`,
+        {
+          serviceName,
+          environment: selectedEnv,
+          version: selectedVersion,
+        }
       )
-    } catch {
+
+      const response = await rollbackService(
+        serviceName,
+        {
+          environment: selectedEnv,
+          version: selectedVersion,
+        }
+      )
+
+      console.info(
+        `[API] Rollback accepted by backend`,
+        response
+      )
+
+      alert(
+        `Rollback triggered for ${serviceName} (${selectedEnv})`
+      )
+    } catch (err) {
+      console.error(
+        `[ERROR] Rollback failed to start`,
+        {
+          serviceName,
+          environment: selectedEnv,
+          version: selectedVersion,
+          error: err,
+        }
+      )
+
       alert("Rollback failed to start")
     } finally {
-      setLoading(false)
+      setRollingBack(false)
     }
   }
 
+  /* ================================
+     RENDER
+     ================================ */
   return (
     <div style={{ marginTop: 20 }}>
       <h3>Service Details</h3>
 
       <p>
-        <strong>Owner:</strong> {dashboard.ownerTeam}
+        <strong>Owner:</strong>{" "}
+        {dashboard.ownerTeam || "—"}
         <br />
-        <strong>Runtime:</strong> {dashboard.runtime}
+        <strong>Runtime:</strong>{" "}
+        {dashboard.runtime || "—"}
       </p>
 
-      {/* ROLLBACK */}
       <strong>Rollback</strong>
 
       {/* ENV SELECT */}
@@ -80,6 +177,7 @@ export default function ServiceCard({ serviceName, dashboard }) {
           <button
             key={env}
             onClick={() => handleEnvSelect(env)}
+            disabled={loadingArtifacts || rollingBack}
             style={{ marginRight: 8 }}
           >
             {env.toUpperCase()}
@@ -98,20 +196,36 @@ export default function ServiceCard({ serviceName, dashboard }) {
 
           <select
             value={selectedVersion}
-            onChange={(e) =>
+            onChange={(e) => {
+              console.info(
+                `[UI] Rollback version selected`,
+                {
+                  serviceName,
+                  environment: selectedEnv,
+                  version: e.target.value,
+                }
+              )
               setSelectedVersion(e.target.value)
-            }
+            }}
+            disabled={loadingArtifacts}
             style={{ minWidth: 420 }}
           >
             <option value="">
-              Select version to rollback
+              {loadingArtifacts
+                ? "Loading versions..."
+                : "Select version to rollback"}
             </option>
 
             {artifacts.map((a) => (
-              <option key={a.version} value={a.version}>
+              <option
+                key={a.version}
+                value={a.version}
+              >
                 {a.version} —{" "}
                 {a.createdAt
-                  ? new Date(a.createdAt).toLocaleString()
+                  ? new Date(
+                      a.createdAt
+                    ).toLocaleString()
                   : ""}
               </option>
             ))}
@@ -121,10 +235,14 @@ export default function ServiceCard({ serviceName, dashboard }) {
 
           <button
             onClick={handleRollback}
-            disabled={!selectedVersion || loading}
+            disabled={
+              !selectedVersion || rollingBack
+            }
             style={{ marginTop: 10 }}
           >
-            {loading ? "Rolling back..." : "Rollback"}
+            {rollingBack
+              ? "Rolling back..."
+              : "Rollback"}
           </button>
         </div>
       )}
