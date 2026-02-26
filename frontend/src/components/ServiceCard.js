@@ -22,11 +22,18 @@ export default function ServiceCard({ serviceName, dashboard }) {
     setLoading(true)
 
     try {
-      const data = await fetchArtifactsByEnv(
-        serviceName,
-        env
+      const data = await fetchArtifactsByEnv(serviceName, env)
+
+      // ✅ backend returns ARRAY directly
+      const artifactsList = Array.isArray(data) ? data : []
+
+      // ✅ sort by createdAt (latest first)
+      artifactsList.sort(
+        (a, b) =>
+          new Date(b.createdAt) - new Date(a.createdAt)
       )
-      setArtifacts(data.artifacts || [])
+
+      setArtifacts(artifactsList)
     } catch {
       setArtifacts([])
     } finally {
@@ -102,11 +109,9 @@ export default function ServiceCard({ serviceName, dashboard }) {
 
             {artifacts.map((a) => (
               <option key={a.version} value={a.version}>
-                {a.version}
-                {a.deployedAt
-                  ? ` — ${new Date(
-                      a.deployedAt
-                    ).toLocaleString()}`
+                {a.version} —{" "}
+                {a.createdAt
+                  ? new Date(a.createdAt).toLocaleString()
                   : ""}
               </option>
             ))}
