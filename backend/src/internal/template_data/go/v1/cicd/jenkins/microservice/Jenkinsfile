@@ -64,8 +64,8 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    env.VERSION = "${env.SERVICE_NAME}-${env.COMMIT_SHA}"
-                    echo "Generated VERSION = ${env.VERSION}"
+                    def randomNum = new Random().nextInt(9000) + 1000
+                    env.VERSION = "${env.SERVICE_NAME}-${env.COMMIT_SHA}-${randomNum}"
                 }
             }
         }
@@ -120,9 +120,27 @@ pipeline {
                 """
             }
         }
-
         failure {
-            echo "❌ Pipeline FAILED"
+            script {
+            def actionType = params.ROLLBACK ? "rollback" : "deploy"
+
+            echo "❌ Pipeline FAILED for ${env.SERVICE_NAME} (${actionType})"
+
+            sh """
+              curl -X POST http://52.23.182.188/api/artifacts \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "serviceName": "${env.SERVICE_NAME}",
+                  "environment": "${env.ENVIRONMENT}",
+                  "version": "myrepo/${env.SERVICE_NAME}:${env.VERSION}",
+                  "artifactType": "docker",
+                  "commitSha": "${env.COMMIT_SHA ?: ""}",
+                  "pipeline": "jenkins",
+                  "action": "${actionType}",
+                  "status": "failed"
+                }'
+            """
+            }
         }
     }
 }
