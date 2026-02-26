@@ -33,7 +33,7 @@ func GetApprovals(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.DB.Query(`
 		SELECT id, service_name, environment,
 		       requested_by, status, created_at
-		FROM deployment_approals
+		FROM deployment_approvals
 		WHERE environment = ? AND status = 'pending'
 		ORDER BY created_at ASC
 	`, env)
@@ -90,7 +90,7 @@ func ApproveDeployment(w http.ResponseWriter, r *http.Request) {
 
 	err = tx.QueryRow(`
 		SELECT service_name, environment
-		FROM deployment_approals
+		FROM deployment_approvals
 		WHERE id = ? AND status = 'pending'
 	`, id).Scan(&service, &env)
 
@@ -107,7 +107,7 @@ func ApproveDeployment(w http.ResponseWriter, r *http.Request) {
 		service, env)
 
 	_, err = tx.Exec(`
-		UPDATE deployment_approals
+		UPDATE deployment_approvals
 		SET status='approved', approved_at=NOW()
 		WHERE id=?
 	`, id)
@@ -166,7 +166,7 @@ func RejectDeployment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, err = db.DB.Exec(`
-		UPDATE deployment_approals
+		UPDATE deployment_approvals
 		SET status='rejected', approved_at=NOW()
 		WHERE id=? AND status='pending'
 	`, id)
