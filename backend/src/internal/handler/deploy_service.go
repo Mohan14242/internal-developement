@@ -53,9 +53,32 @@ func DeployServices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+
+	if req.Environment == "prod" {
+		// Create approval request
+		_, err := db.DB.Exec(`
+			INSERT INTO deployment_approvals
+			(service_name, environment,status,created_at)
+			VALUES (?, ?, 'pending',NOW())
+		`,
+			serviceName,
+			req.Environment,
+		)
+
+		if err != nil {
+			http.Error(w, "failed to create approval", 500)
+			return
+		}
+
+		w.WriteHeader(http.StatusAccepted)
+		w.Write([]byte(`{"status":"pending_approval"}`))
+		return
+	}
+
 	log.Printf("[[deploying to the environment is %s]]",req.Environment)
 
 	log.Printf("getting the DB details")
+
 
 	// 🔍 Get CICD type & repo info
 	var cicdType, repo string

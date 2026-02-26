@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom"
 import ServicesList from "./pages/ServicesList"
 import ServiceDashboard from "./pages/ServiceDashboard"
 import CreateServicePage from "./pages/CreateServicePage"
+import AdminApprovals from "./pages/AdminApprovals"
 
 export default function App() {
   return (
@@ -10,15 +11,22 @@ export default function App() {
         <h1>🚀 Internal Developer Platform</h1>
 
         <nav style={{ marginBottom: "10px" }}>
-          <Link to="/" style={{ marginRight: "12px" }}>
+          <Link to="/" style={{ marginRight: 12 }}>
             Services
           </Link>
-          <Link to="/create">Create Service</Link>
+
+          <Link to="/create" style={{ marginRight: 12 }}>
+            Create Service
+          </Link>
+
+          <Link to="/approvals">
+            Prod Approvals
+          </Link>
         </nav>
       </header>
 
       <Routes>
-        {/* Service list */}
+        {/* Services list */}
         <Route path="/" element={<ServicesList />} />
 
         {/* Per-service dashboard */}
@@ -29,6 +37,12 @@ export default function App() {
 
         {/* Create service */}
         <Route path="/create" element={<CreateServicePage />} />
+
+        {/* 🔐 Production approvals */}
+        <Route
+          path="/approvals"
+          element={<AdminApprovals />}
+        />
       </Routes>
     </BrowserRouter>
   )

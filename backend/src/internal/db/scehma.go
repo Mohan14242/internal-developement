@@ -96,6 +96,17 @@ func EnsureSchema() error {
 		INDEX idx_env_state_service (service_name)
 	);`
 
+
+	approvaltable := `
+	CREATE TABLE deployment_approvals (
+		id BIGINT AUTO_INCREMENT PRIMARY KEY,
+		service_name VARCHAR(255) NOT NULL,
+		environment VARCHAR(50) NOT NULL,
+		status ENUM('pending','approved','rejected') NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		approved_at TIMESTAMP NULL
+	);`
+
 	/* ===================== INDEXES ===================== */
 
 	indexes := []string{
