@@ -65,7 +65,7 @@ pipeline {
                     ).trim()
 
                     def randomNum = new Random().nextInt(9000) + 1000
-                    env.VERSION = "${env.SERVICE_NAME}-${env.COMMIT_SHA}-${randomNum}"
+                    env.VERSION = "myservice/${env.SERVICE_NAME}-${env.COMMIT_SHA}-${randomNum}"
                 }
             }
         }
@@ -110,7 +110,7 @@ pipeline {
                     -d '{
                       "serviceName": "${env.SERVICE_NAME}",
                       "environment": "${env.ENVIRONMENT}",
-                      "version": "myrepo/${env.SERVICE_NAME}:${env.VERSION}",
+                      "version": "${env.VERSION}",
                       "artifactType": "docker",
                       "commitSha": "${env.COMMIT_SHA ?: ""}",
                       "pipeline": "jenkins",
@@ -132,7 +132,7 @@ pipeline {
                 -d '{
                   "serviceName": "${env.SERVICE_NAME}",
                   "environment": "${env.ENVIRONMENT}",
-                  "version": "myrepo/${env.SERVICE_NAME}:${env.VERSION}",
+                  "version": "${env.VERSION}",
                   "artifactType": "docker",
                   "commitSha": "${env.COMMIT_SHA ?: ""}",
                   "pipeline": "jenkins",

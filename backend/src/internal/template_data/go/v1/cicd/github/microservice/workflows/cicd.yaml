@@ -59,7 +59,7 @@ jobs:
           COMMIT_SHA=$(git rev-parse --short HEAD)
           RANDOM_NUM=$((RANDOM % 10000))
 
-          VERSION="${SERVICE_NAME}-${COMMIT_SHA}-${RANDOM_NUM}"
+          VERSION="myservive/${SERVICE_NAME}-${COMMIT_SHA}-${RANDOM_NUM}"
 
           echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
           echo "VERSION=$VERSION" >> $GITHUB_ENV
@@ -102,7 +102,7 @@ jobs:
             -d "{
               \"serviceName\": \"$SERVICE_NAME\",
               \"environment\": \"$ENVIRONMENT\",
-              \"version\": \"myrepo/$SERVICE_NAME:$VERSION\",
+              \"version\": \"$VERSION\",
               \"artifactType\": \"docker\",
               \"commitSha\": \"${COMMIT_SHA:-}\",
               \"pipeline\": \"github\",
@@ -125,7 +125,7 @@ jobs:
             -d "{
               \"serviceName\": \"$SERVICE_NAME\",
               \"environment\": \"$ENVIRONMENT\",
-              \"version\": \"myrepo/$SERVICE_NAME:${VERSION:-unknown}\",
+              \"version\": \"${VERSION:-unknown}\",
               \"artifactType\": \"docker\",
               \"commitSha\": \"${COMMIT_SHA:-}\",
               \"pipeline\": \"github\",
