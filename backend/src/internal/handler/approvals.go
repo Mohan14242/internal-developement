@@ -32,7 +32,7 @@ func GetApprovals(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := db.DB.Query(`
 		SELECT id, service_name, environment,
-		       requested_by, status, created_at
+		status, created_at
 		FROM deployment_approvals
 		WHERE environment = ? AND status = 'pending'
 		ORDER BY created_at ASC
