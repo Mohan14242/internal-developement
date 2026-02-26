@@ -8,6 +8,7 @@ import DeployButton from "../components/DeployButton"
 import ServiceCard from "../components/ServiceCard"
 
 const DEFAULT_ENVS = ["dev", "test", "prod"]
+const POLL_INTERVAL_MS = 5000 // 5 seconds
 
 export default function ServiceDashboard() {
   const { serviceName } = useParams()
@@ -15,29 +16,35 @@ export default function ServiceDashboard() {
   const [dashboard, setDashboard] = useState(null)
   const [deploying, setDeploying] = useState({})
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
 
+  // -------- Load dashboard once + polling ----------
   useEffect(() => {
-    loadDashboard()
+    let isMounted = true
+
+    async function load() {
+      try {
+        const data = await fetchServiceDashboard(serviceName)
+        if (isMounted) setDashboard(data)
+      } catch {
+        if (isMounted) setDashboard(null)
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+
+    load()
+
+    const interval = setInterval(load, POLL_INTERVAL_MS)
+
+    return () => {
+      isMounted = false
+      clearInterval(interval)
+    }
   }, [serviceName])
 
-  async function loadDashboard() {
-    try {
-      setLoading(true)
-      setError("")
-
-      const data = await fetchServiceDashboard(serviceName)
-      setDashboard(data)
-    } catch (err) {
-      // dashboard may not exist yet (404)
-      setDashboard(null)
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // -------- Deploy handler ----------
   const handleDeploy = async (env) => {
-    setDeploying((prev) => ({ ...prev, [env]: true }))
+    setDeploying((p) => ({ ...p, [env]: true }))
 
     try {
       await deployService(serviceName, env)
@@ -45,17 +52,12 @@ export default function ServiceDashboard() {
     } catch {
       alert("Failed to trigger deployment")
     } finally {
-      setDeploying((prev) => ({ ...prev, [env]: false }))
-      await loadDashboard() // refresh only this service
+      setDeploying((p) => ({ ...p, [env]: false }))
     }
   }
 
   if (loading) {
     return <p>Loading {serviceName} dashboard...</p>
-  }
-
-  if (error) {
-    return <p style={{ color: "red" }}>{error}</p>
   }
 
   const envs = dashboard?.environments
@@ -68,6 +70,9 @@ export default function ServiceDashboard() {
       <div style={{ marginBottom: 16 }}>
         <Link to="/">← Back to Services</Link>
         <h2>{serviceName} – Service Dashboard</h2>
+        <p style={{ color: "#777", fontSize: 12 }}>
+          Auto-refresh every {POLL_INTERVAL_MS / 1000}s
+        </p>
       </div>
 
       {/* DEPLOY BUTTONS */}
@@ -86,7 +91,7 @@ export default function ServiceDashboard() {
         ))}
       </div>
 
-      {/* DASHBOARD DETAILS */}
+      {/* SERVICE DETAILS + ROLLBACK */}
       {dashboard ? (
         <ServiceCard
           serviceName={serviceName}

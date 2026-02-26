@@ -11,7 +11,7 @@ export default function DeployButton({ env, status, loading, onDeploy }) {
         padding: "6px 12px",
         borderRadius: 4,
         border: "none",
-        backgroundColor: loading ? "#f39c12" : getStatusColor(status),
+        backgroundColor: loading ? "#f39d12fc" : getStatusColor(status),
         color: "#fff",
         cursor: loading ? "not-allowed" : "pointer",
       }}
