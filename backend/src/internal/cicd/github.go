@@ -155,7 +155,7 @@ func TriggerGitHubDeploy(repo, branch string) error {
 		"ref": branch,
 	}
 	body, _ := json.Marshal(payload)
-	user, err := GetAuthenticatedUser(token)
+	user, err := git.GetAuthenticatedUser(token)
 	if err != nil {
 		fmt.Println("Error:", err)
 		return
