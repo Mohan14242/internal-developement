@@ -205,7 +205,7 @@ func TriggerGitHubRollback(repo, environment, version string) error {
 	log.Println("[GITHUB][ROLLBACK] Starting GitHub rollback trigger")
 
 	// 🔐 Fetch GitHub token
-	token, err := aws.GetGitToken("git-secrete")
+	token, err := aws.GetGitToken("git-token")
 	if err != nil {
 		log.Printf("[GITHUB][ROLLBACK][ERROR] Failed to fetch GitHub token: %v\n", err)
 		return err
