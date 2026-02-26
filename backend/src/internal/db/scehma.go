@@ -11,31 +11,25 @@ func EnsureSchema() error {
 	CREATE TABLE IF NOT EXISTS services (
 		id BIGINT AUTO_INCREMENT PRIMARY KEY,
 
-		-- Identity
 		service_name VARCHAR(150) NOT NULL UNIQUE,
 
-		-- Lifecycle
 		status VARCHAR(30) NOT NULL DEFAULT 'creating',
 		last_error TEXT NULL,
 		provisioned_at TIMESTAMP NULL,
 
-		-- Git
 		repo_url VARCHAR(255) NULL,
 		repo_name VARCHAR(255) NULL,
 		webhook_token VARCHAR(64) NULL,
 
-		-- Ownership & runtime
 		owner_team VARCHAR(100) NULL,
 		runtime VARCHAR(50) NULL,
 		cicd_type VARCHAR(50) NULL,
 		template_version VARCHAR(50) NULL,
 		deploy_type VARCHAR(50) NULL,
 
-		-- Config
 		environments JSON NULL,
 		enablewebhook BOOLEAN NOT NULL DEFAULT FALSE,
 
-		-- Timestamps
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 			ON UPDATE CURRENT_TIMESTAMP
@@ -55,13 +49,13 @@ func EnsureSchema() error {
 		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 			ON UPDATE CURRENT_TIMESTAMP,
 
-		UNIQUE(service_id, environment),
+		UNIQUE KEY uniq_service_env (service_id, environment),
 		FOREIGN KEY (service_id)
 			REFERENCES services(id)
 			ON DELETE CASCADE
 	);`
 
-	/* ===================== ARTIFACTS (HISTORY) ===================== */
+	/* ===================== ARTIFACTS ===================== */
 
 	artifactsTable := `
 	CREATE TABLE IF NOT EXISTS artifacts (
@@ -70,11 +64,11 @@ func EnsureSchema() error {
 		service_name VARCHAR(150) NOT NULL,
 		environment VARCHAR(20) NOT NULL,
 
-		version VARCHAR(255) NOT NULL,  -- image:tag or ami-id
-		artifact_type VARCHAR(20) NOT NULL, -- docker | ami
+		version VARCHAR(255) NOT NULL,
+		artifact_type VARCHAR(20) NOT NULL,
 		commit_sha VARCHAR(40) NULL,
-		pipeline VARCHAR(30) NULL,          -- jenkins | github
-		action VARCHAR(20) NOT NULL,        -- deploy | rollback
+		pipeline VARCHAR(30) NULL,
+		action VARCHAR(20) NOT NULL,
 
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
@@ -82,7 +76,7 @@ func EnsureSchema() error {
 		INDEX idx_artifacts_version (version)
 	);`
 
-	/* ===================== ENVIRONMENT STATE (CURRENT) ===================== */
+	/* ===================== ENVIRONMENT STATE ===================== */
 
 	environmentStateTable := `
 	CREATE TABLE IF NOT EXISTS environment_state (
@@ -92,29 +86,25 @@ func EnsureSchema() error {
 		version VARCHAR(255) NOT NULL,
 		status VARCHAR(20) NOT NULL DEFAULT 'success',
 		deployed_at TIMESTAMP NOT NULL,
+
 		PRIMARY KEY (service_name, environment),
 		INDEX idx_env_state_service (service_name)
 	);`
 
+	/* ===================== DEPLOYMENT APPROVALS ===================== */
 
-	approvaltable := `
-	CREATE TABLE deployment_approvals (
+	approvalsTable := `
+	CREATE TABLE IF NOT EXISTS deployment_approvals (
 		id BIGINT AUTO_INCREMENT PRIMARY KEY,
-		service_name VARCHAR(255) NOT NULL,
+
+		service_name VARCHAR(150) NOT NULL,
 		environment VARCHAR(50) NOT NULL,
 		status ENUM('pending','approved','rejected') NOT NULL,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-		approved_at TIMESTAMP NULL
+		approved_at TIMESTAMP NULL,
+		INDEX idx_approvals_env_status (environment, status),
+		INDEX idx_approvals_service (service_name)
 	);`
-
-	/* ===================== INDEXES ===================== */
-
-	indexes := []string{
-		`CREATE INDEX IF NOT EXISTS idx_services_owner_team ON services(owner_team);`,
-		`CREATE INDEX IF NOT EXISTS idx_services_status ON services(status);`,
-		`CREATE INDEX IF NOT EXISTS idx_services_created_at ON services(created_at);`,
-		`CREATE INDEX IF NOT EXISTS idx_deployments_service_id ON deployments(service_id);`,
-	}
 
 	/* ===================== EXECUTION ===================== */
 
@@ -126,7 +116,7 @@ func EnsureSchema() error {
 		{"deployments", deploymentsTable},
 		{"artifacts", artifactsTable},
 		{"environment_state", environmentStateTable},
-		{"approvals",approvaltable},
+		{"deployment_approvals", approvalsTable},
 	}
 
 	for _, t := range tables {
@@ -136,9 +126,19 @@ func EnsureSchema() error {
 		}
 	}
 
+	/* ===================== INDEXES (MYSQL SAFE) ===================== */
+
+	indexes := []string{
+		`CREATE INDEX idx_services_owner_team ON services(owner_team);`,
+		`CREATE INDEX idx_services_status ON services(status);`,
+		`CREATE INDEX idx_services_created_at ON services(created_at);`,
+		`CREATE INDEX idx_deployments_service_id ON deployments(service_id);`,
+	}
+
 	for _, idx := range indexes {
 		if _, err := DB.Exec(idx); err != nil {
-			log.Println("⚠️ Index creation skipped (may already exist):", err)
+			// MySQL will throw "Duplicate key name" if index exists — safe to ignore
+			log.Println("ℹ️ Index already exists or skipped:", err)
 		}
 	}
 
