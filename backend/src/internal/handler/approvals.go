@@ -123,7 +123,7 @@ func ApproveDeployment(w http.ResponseWriter, r *http.Request) {
 
 	branch := "master"
 	var cicdType, repo string
-	err := db.DB.QueryRow(`
+	err = db.DB.QueryRow(`
 		SELECT cicd_type, repo_name
 		FROM services
 		WHERE service_name = ?`,
