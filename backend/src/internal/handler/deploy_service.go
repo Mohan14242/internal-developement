@@ -53,13 +53,13 @@ func DeployServices(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 🔍 Get CICD type & repo info
-	var cicdType, owner, repo string
+	var cicdType, repo string
 	err := db.DB.QueryRow(`
-		SELECT cicd_type, owner_team, repo_name
+		SELECT cicd_type, repo_name
 		FROM services
 		WHERE service_name = ?`,
 		serviceName,
-	).Scan(&cicdType, &owner, &repo)
+	).Scan(&cicdType, &repo)
 	if err != nil {
 		http.Error(w, "service not found", http.StatusNotFound)
 		return
@@ -71,7 +71,7 @@ func DeployServices(w http.ResponseWriter, r *http.Request) {
 		err = cicd.TriggerJenkinsDeploy(serviceName, branch)
 
 	case "github":
-		err = cicd.TriggerGitHubDeploy(owner, repo, branch)
+		err = cicd.TriggerGitHubDeploy(repo, branch)
 
 	default:
 		http.Error(w, "unsupported cicd type", http.StatusBadRequest)

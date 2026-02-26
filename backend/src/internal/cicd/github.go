@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 	"src/src/internal/aws"
+	"src/src/internal/git"
 )
 
 type GitHubClient struct {
@@ -143,13 +144,24 @@ func (g *GitHubClient) CreateWebhook(owner, repo, webhookURL string) error {
 
 
 
-func TriggerGitHubDeploy(owner, repo, branch string) error {
-	token, err := aws.GetGitToken("git-secrete")
+func TriggerGitHubDeploy(repo, branch string) error {
+	token, err := aws.GetGitToken("git-token")
+	if err != nil {
+		log.Println("[GITHUB][ERROR] Failed to fetch GitHub token:", err)
+		return nil, err
+	}
 	workflow := "cicd.yml" // name of workflow file
 	payload := map[string]interface{}{
 		"ref": branch,
 	}
 	body, _ := json.Marshal(payload)
+	user, err := GetAuthenticatedUser(token)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	fmt.Println("Authenticated GitHub User:", user)
 
 	req, _ := http.NewRequest(
 		"POST",
@@ -159,7 +171,6 @@ func TriggerGitHubDeploy(owner, repo, branch string) error {
 		),
 		bytes.NewBuffer(body),
 	)
-
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("Content-Type", "application/json")
