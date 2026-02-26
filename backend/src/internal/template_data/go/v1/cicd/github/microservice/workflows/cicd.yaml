@@ -29,7 +29,6 @@ jobs:
 
           SERVICE_NAME=$(jq -r '.serviceName' config.json)
           echo "SERVICE_NAME=$SERVICE_NAME" >> $GITHUB_ENV
-
           echo "Loaded SERVICE_NAME=$SERVICE_NAME"
 
       # ================= DETECT ENVIRONMENT =================
@@ -86,7 +85,7 @@ jobs:
           echo "Environment: $ENVIRONMENT"
           echo "Rollback Version: $VERSION"
 
-      # ================= NOTIFY PLATFORM =================
+      # ================= NOTIFY PLATFORM (SUCCESS) =================
 
       - name: Notify platform (success)
         if: success()
@@ -103,8 +102,31 @@ jobs:
               \"environment\": \"$ENVIRONMENT\",
               \"version\": \"myrepo/$SERVICE_NAME:$VERSION\",
               \"artifactType\": \"docker\",
-              \"commitSha\": \"${COMMIT_SHA:-}\" ,
+              \"commitSha\": \"${COMMIT_SHA:-}\",
               \"pipeline\": \"github\",
               \"action\": \"$ACTION_TYPE\",
               \"status\": \"success\"
+            }"
+
+      # ================= NOTIFY PLATFORM (FAILURE) =================
+
+      - name: Notify platform (failure)
+        if: failure()
+        run: |
+          ACTION_TYPE="deploy"
+          if [ "${{ inputs.rollback }}" = "true" ]; then
+            ACTION_TYPE="rollback"
+          fi
+
+          curl -X POST http://52.23.182.188/api/artifacts \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"serviceName\": \"$SERVICE_NAME\",
+              \"environment\": \"$ENVIRONMENT\",
+              \"version\": \"myrepo/$SERVICE_NAME:${VERSION:-unknown}\",
+              \"artifactType\": \"docker\",
+              \"commitSha\": \"${COMMIT_SHA:-}\",
+              \"pipeline\": \"github\",
+              \"action\": \"$ACTION_TYPE\",
+              \"status\": \"failed\"
             }"
