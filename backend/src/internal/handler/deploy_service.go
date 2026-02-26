@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
-
+	"log"
 	"src/src/internal/cicd"
 	"src/src/internal/db"
 )
@@ -26,6 +26,7 @@ func DeployServices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	serviceName := parts[1]
+	log.Printf("[[deploying the serving]] %s ",serviceName)
 
 	var req DeployRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -52,6 +53,10 @@ func DeployServices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("[[deploying to the environment is %s]]",req.Environment)
+
+	log.Printf("getting the DB details")
+
 	// 🔍 Get CICD type & repo info
 	var cicdType, repo string
 	err := db.DB.QueryRow(`
@@ -64,7 +69,7 @@ func DeployServices(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "service not found", http.StatusNotFound)
 		return
 	}
-
+	log.Printf("Selecting the pipeline type and triggering the deployment")
 	// 🚀 Trigger correct CICD
 	switch cicdType {
 	case "jenkins":

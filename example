@@ -1,6 +1,6 @@
-serviceName: user-service14242-go-github-912199121-mohan
-repoName: user-service14242-go-github-912199121-mohan
-ownerTeam: user14242
+serviceName: mohan123
+repoName: mohan123
+ownerTeam: mohan123
 runtime: go
 cicdType: jenkins
 templateVersion: v1
