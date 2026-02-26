@@ -20,8 +20,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ================= LOAD CONFIG =================
-
       - name: Load project configuration
         run: |
           if [ ! -f config.json ]; then
@@ -54,24 +52,18 @@ jobs:
           echo "ENVIRONMENT=$ENVIRONMENT" >> $GITHUB_ENV
           echo "ENVIRONMENT resolved as $ENVIRONMENT"
 
-      # ================= GENERATE VERSION =================
+      # ================= NORMAL DEPLOY =================
 
       - name: Generate version
         if: ${{ inputs.rollback != 'true' }}
         run: |
           COMMIT_SHA=$(git rev-parse --short HEAD)
-
-          # Random 4-digit number
-          RANDOM_NUM=$((RANDOM % 9000 + 1000))
-
-          VERSION="${SERVICE_NAME}-${COMMIT_SHA}-${RANDOM_NUM}"
+          VERSION="${SERVICE_NAME}-${COMMIT_SHA}"
 
           echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
           echo "Generated VERSION=$VERSION"
-
-      # ================= NORMAL DEPLOY =================
 
       - name: Simulate deploy
         if: ${{ inputs.rollback != 'true' }}
@@ -94,7 +86,7 @@ jobs:
           echo "Environment: $ENVIRONMENT"
           echo "Rollback Version: $VERSION"
 
-      # ================= NOTIFY PLATFORM (SUCCESS) =================
+      # ================= NOTIFY PLATFORM =================
 
       - name: Notify platform (success)
         if: success()
@@ -111,31 +103,8 @@ jobs:
               \"environment\": \"$ENVIRONMENT\",
               \"version\": \"myrepo/$SERVICE_NAME:$VERSION\",
               \"artifactType\": \"docker\",
-              \"commitSha\": \"${COMMIT_SHA:-}\",
+              \"commitSha\": \"${COMMIT_SHA:-}\" ,
               \"pipeline\": \"github\",
               \"action\": \"$ACTION_TYPE\",
               \"status\": \"success\"
-            }"
-
-      # ================= NOTIFY PLATFORM (FAILURE) =================
-
-      - name: Notify platform (failure)
-        if: failure()
-        run: |
-          ACTION_TYPE="deploy"
-          if [ "${{ inputs.rollback }}" = "true" ]; then
-            ACTION_TYPE="rollback"
-          fi
-
-          curl -X POST http://52.23.182.188/api/artifacts \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"serviceName\": \"$SERVICE_NAME\",
-              \"environment\": \"$ENVIRONMENT\",
-              \"version\": \"myrepo/$SERVICE_NAME:${VERSION:-unknown}\",
-              \"artifactType\": \"docker\",
-              \"commitSha\": \"${COMMIT_SHA:-}\",
-              \"pipeline\": \"github\",
-              \"action\": \"$ACTION_TYPE\",
-              \"status\": \"failed\"
             }"
