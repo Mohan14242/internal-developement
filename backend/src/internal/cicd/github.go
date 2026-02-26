@@ -148,22 +148,28 @@ func TriggerGitHubDeploy(repo, branch string) error {
 	token, err := aws.GetGitToken("git-token")
 	if err != nil {
 		log.Println("[GITHUB][ERROR] Failed to fetch GitHub token:", err)
-		return nil, err
+		return err
 	}
-	workflow := "cicd.yml" // name of workflow file
+
+	workflow := "cicd.yml"
+
 	payload := map[string]interface{}{
 		"ref": branch,
 	}
-	body, _ := json.Marshal(payload)
-	user, err := git.GetAuthenticatedUser(token)
+
+	body, err := json.Marshal(payload)
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		return err
 	}
 
-	fmt.Println("Authenticated GitHub User:", user)
+	owner, err := git.GetAuthenticatedUser(token)
+	if err != nil {
+		return err
+	}
 
-	req, _ := http.NewRequest(
+	fmt.Println("Authenticated GitHub User:", owner)
+
+	req, err := http.NewRequest(
 		"POST",
 		fmt.Sprintf(
 			"https://api.github.com/repos/%s/%s/actions/workflows/%s/dispatches",
@@ -171,9 +177,14 @@ func TriggerGitHubDeploy(repo, branch string) error {
 		),
 		bytes.NewBuffer(body),
 	)
+	if err != nil {
+		return err
+	}
+
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "platform-backend")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -182,14 +193,15 @@ func TriggerGitHubDeploy(repo, branch string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("github actions trigger failed: %s", resp.Status)
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("status: %s, body: %s", resp.Status, string(bodyBytes))
 	}
 
 	return nil
 }
 
 
-func TriggerGitHubRollback(owner, repo, environment, version string) error {
+func TriggerGitHubRollback(repo, environment, version string) error {
 	token, err := aws.GetGitToken("git-secrete")
 	workflow := "cicd.yml" // same workflow, handles rollback via inputs
 	payload := map[string]interface{}{
@@ -199,8 +211,12 @@ func TriggerGitHubRollback(owner, repo, environment, version string) error {
 			"version":  version,
 		},
 	}
-
 	body, _ := json.Marshal(payload)
+	owner, err := git.GetAuthenticatedUser(token)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Authenticated GitHub User:", owner)
 
 	req, _ := http.NewRequest(
 		"POST",
@@ -210,7 +226,6 @@ func TriggerGitHubRollback(owner, repo, environment, version string) error {
 		),
 		bytes.NewBuffer(body),
 	)
-
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("Content-Type", "application/json")
@@ -224,7 +239,6 @@ func TriggerGitHubRollback(owner, repo, environment, version string) error {
 	if resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("github rollback trigger failed: %s", resp.Status)
 	}
-
 	return nil
 }
 

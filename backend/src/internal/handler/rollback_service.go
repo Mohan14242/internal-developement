@@ -81,13 +81,13 @@ func RollbackService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 🔍 Get CICD type & repo info
-	var cicdType, owner, repo string
+	var cicdType, repo string
 	err = db.DB.QueryRow(`
-		SELECT cicd_type, owner_team, repo_name
+		SELECT cicd_type, repo_name
 		FROM services
 		WHERE service_name = ?`,
 		serviceName,
-	).Scan(&cicdType, &owner, &repo)
+	).Scan(&cicdType, &repo)
 	if err != nil {
 		http.Error(w, "service not found", http.StatusNotFound)
 		return
@@ -99,7 +99,7 @@ func RollbackService(w http.ResponseWriter, r *http.Request) {
 		err = cicd.TriggerJenkinsRollback(serviceName, req.Environment, req.Version)
 
 	case "github":
-		err = cicd.TriggerGitHubRollback(owner, repo, req.Environment, req.Version)
+		err = cicd.TriggerGitHubRollback( repo, req.Environment, req.Version)
 
 	default:
 		http.Error(w, "unsupported cicd type", http.StatusBadRequest)
