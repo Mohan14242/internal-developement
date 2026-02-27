@@ -97,7 +97,7 @@ jobs:
             ACTION_TYPE="rollback"
           fi
 
-          curl -X POST http://18.209.13.237/api/artifacts \
+          curl -X POST http://54.163.70.153/api/artifacts \
             -H "Content-Type: application/json" \
             -d "{
               \"serviceName\": \"$SERVICE_NAME\",
@@ -120,7 +120,7 @@ jobs:
             ACTION_TYPE="rollback"
           fi
 
-          curl -X POST http://18.209.13.237/api/artifacts \
+          curl -X POST http://54.163.70.153/api/artifacts \
             -H "Content-Type: application/json" \
             -d "{
               \"serviceName\": \"$SERVICE_NAME\",

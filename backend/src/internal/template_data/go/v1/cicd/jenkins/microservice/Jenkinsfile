@@ -105,7 +105,7 @@ pipeline {
                 echo "✅ Pipeline SUCCESS for ${env.VERSION} (${actionType})"
 
                 sh """
-                  curl -X POST http://18.209.13.237/api/artifacts \
+                  curl -X POST http://54.163.70.153/api/artifacts \
                     -H "Content-Type: application/json" \
                     -d '{
                       "serviceName": "${env.SERVICE_NAME}",
@@ -127,7 +127,7 @@ pipeline {
             echo "❌ Pipeline FAILED for ${env.SERVICE_NAME} (${actionType})"
 
             sh """
-              curl -X POST http://18.209.13.237/api/artifacts \
+              curl -X POST http://54.163.70.153/api/artifacts \
                 -H "Content-Type: application/json" \
                 -d '{
                   "serviceName": "${env.SERVICE_NAME}",
