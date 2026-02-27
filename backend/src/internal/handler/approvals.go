@@ -13,17 +13,27 @@ import (
 	"src/src/internal/db"
 )
 
+/* ===================== MODELS ===================== */
+
 type Approval struct {
-	ID          int64     `json:"id"`
-	ServiceName string    `json:"serviceName"`
-	Environment string    `json:"environment"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"createdAt"`
-	ApprovedAt *time.Time `json:"approvedAt"`
+	ID          int64      `json:"id"`
+	ServiceName string     `json:"serviceName"`
+	Environment string     `json:"environment"`
+	Status      string     `json:"status"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	ApprovedAt  *time.Time `json:"approvedAt,omitempty"`
 }
 
+/* ===================== GET APPROVALS ===================== */
+/*
+Returns:
+- pending approvals
+- approved history
+- rejected history
+*/
+
 func GetApprovals(w http.ResponseWriter, r *http.Request) {
-	log.Println("[APPROVAL] Fetching approvals")
+	log.Println("[APPROVAL] Fetching approvals (pending + history)")
 
 	env := r.URL.Query().Get("environment")
 	if env == "" {
@@ -32,16 +42,21 @@ func GetApprovals(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := db.DB.Query(`
-		SELECT id, service_name, environment,
-		status, created_at
+		SELECT
+			id,
+			service_name,
+			environment,
+			status,
+			created_at,
+			approved_at
 		FROM deployment_approvals
-		WHERE environment = ? AND status = 'pending'
-		ORDER BY created_at ASC
+		WHERE environment = ?
+		ORDER BY created_at DESC
 	`, env)
 
 	if err != nil {
 		log.Println("[APPROVAL][ERROR]", err)
-		http.Error(w, "failed to fetch approvals", 500)
+		http.Error(w, "failed to fetch approvals", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -50,14 +65,14 @@ func GetApprovals(w http.ResponseWriter, r *http.Request) {
 
 	for rows.Next() {
 		var a Approval
-		err := rows.Scan(
+		if err := rows.Scan(
 			&a.ID,
 			&a.ServiceName,
 			&a.Environment,
 			&a.Status,
 			&a.CreatedAt,
-		)
-		if err != nil {
+			&a.ApprovedAt,
+		); err != nil {
 			log.Println("[APPROVAL][ERROR]", err)
 			continue
 		}
@@ -68,44 +83,43 @@ func GetApprovals(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(approvals)
 }
 
-
-
+/* ===================== APPROVE ===================== */
 
 func ApproveDeployment(w http.ResponseWriter, r *http.Request) {
 	log.Println("[APPROVAL] Approve request received")
 
 	id, err := extractApprovalID(r.URL.Path)
 	if err != nil {
-		http.Error(w, "invalid approval id", 400)
+		http.Error(w, "invalid approval id", http.StatusBadRequest)
 		return
 	}
 
 	tx, err := db.DB.Begin()
 	if err != nil {
-		http.Error(w, "db error", 500)
+		http.Error(w, "db error", http.StatusInternalServerError)
 		return
 	}
 	defer tx.Rollback()
 
-	var service, env string
+	var serviceName, environment string
 
 	err = tx.QueryRow(`
 		SELECT service_name, environment
 		FROM deployment_approvals
 		WHERE id = ? AND status = 'pending'
-	`, id).Scan(&service, &env)
+	`, id).Scan(&serviceName, &environment)
 
 	if err == sql.ErrNoRows {
-		http.Error(w, "approval not found or already processed", 404)
+		http.Error(w, "approval not found or already processed", http.StatusNotFound)
 		return
 	}
 	if err != nil {
-		http.Error(w, "db error", 500)
+		http.Error(w, "db error", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("[APPROVAL] Approving service=%s env=%s version=%s\n",
-		service, env)
+	log.Printf("[APPROVAL] Approving service=%s env=%s",
+		serviceName, environment)
 
 	_, err = tx.Exec(`
 		UPDATE deployment_approvals
@@ -113,36 +127,38 @@ func ApproveDeployment(w http.ResponseWriter, r *http.Request) {
 		WHERE id=?
 	`, id)
 	if err != nil {
-		http.Error(w, "failed to update approval", 500)
+		http.Error(w, "failed to update approval", http.StatusInternalServerError)
 		return
 	}
 
 	if err := tx.Commit(); err != nil {
-		http.Error(w, "failed to commit approval", 500)
+		http.Error(w, "failed to commit approval", http.StatusInternalServerError)
 		return
 	}
 
-	branch := "master"
+	/* ===== Trigger CICD after approval ===== */
+
 	var cicdType, repo string
 	err = db.DB.QueryRow(`
 		SELECT cicd_type, repo_name
 		FROM services
-		WHERE service_name = ?`,
-		service,
-	).Scan(&cicdType, &repo)
+		WHERE service_name = ?
+	`, serviceName).Scan(&cicdType, &repo)
+
 	if err != nil {
 		http.Error(w, "service not found", http.StatusNotFound)
 		return
 	}
-	log.Printf("Selecting the pipeline type and triggering the deployment")
-	// 🚀 Trigger correct CICD
+
+	branch := "master" // prod
+
+	log.Printf("[APPROVAL] Triggering prod deployment via %s", cicdType)
+
 	switch cicdType {
 	case "jenkins":
-		err = cicd.TriggerJenkinsDeploy(service, branch)
-
+		err = cicd.TriggerJenkinsDeploy(serviceName, branch)
 	case "github":
 		err = cicd.TriggerGitHubDeploy(repo, branch)
-
 	default:
 		http.Error(w, "unsupported cicd type", http.StatusBadRequest)
 		return
@@ -154,26 +170,34 @@ func ApproveDeployment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"message":"production deployment triggered"}`))
-
+	w.Write([]byte(`{"message":"production deployment approved and triggered"}`))
 }
+
+/* ===================== REJECT ===================== */
 
 func RejectDeployment(w http.ResponseWriter, r *http.Request) {
 	log.Println("[APPROVAL] Reject request received")
 
 	id, err := extractApprovalID(r.URL.Path)
 	if err != nil {
-		http.Error(w, "invalid approval id", 400)
+		http.Error(w, "invalid approval id", http.StatusBadRequest)
 		return
 	}
-	_, err = db.DB.Exec(`
+
+	res, err := db.DB.Exec(`
 		UPDATE deployment_approvals
 		SET status='rejected', approved_at=NOW()
 		WHERE id=? AND status='pending'
 	`, id)
 
 	if err != nil {
-		http.Error(w, "failed to reject approval", 500)
+		http.Error(w, "failed to reject approval", http.StatusInternalServerError)
+		return
+	}
+
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		http.Error(w, "approval not found or already processed", http.StatusNotFound)
 		return
 	}
 
@@ -181,11 +205,10 @@ func RejectDeployment(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"message":"production deployment rejected"}`))
 }
 
+/* ===================== HELPERS ===================== */
+
 func extractApprovalID(path string) (int64, error) {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	idStr := parts[len(parts)-2]
 	return strconv.ParseInt(idStr, 10, 64)
 }
-
-
-
