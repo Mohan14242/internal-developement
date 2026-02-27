@@ -56,7 +56,6 @@ func GetApprovals(w http.ResponseWriter, r *http.Request) {
 			&a.Environment,
 			&a.Status,
 			&a.CreatedAt,
-			&a.ApprovedAt,
 		)
 		if err != nil {
 			log.Println("[APPROVAL][ERROR]", err)
