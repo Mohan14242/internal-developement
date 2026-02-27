@@ -31,8 +31,7 @@ export default function AdminApprovals() {
       setLoading(true)
       setError("")
       const data = await fetchProdApprovals()
-      setApprovals(data)
-      console.log("[UI] Loaded approvals:", data)
+      setApprovals(Array.isArray(data) ? data : [])
     } catch (err) {
       console.error("[UI] Failed to load approvals", err)
       setError("Failed to load approvals")
@@ -43,29 +42,19 @@ export default function AdminApprovals() {
 
   async function handleApprove(id) {
     setActionLoading((p) => ({ ...p, [id]: true }))
-    try {
-      await approveDeployment(id)
-      await loadApprovals()
-    } catch {
-      alert("Approval failed")
-    } finally {
-      setActionLoading((p) => ({ ...p, [id]: false }))
-    }
+    await approveDeployment(id)
+    await loadApprovals()
+    setActionLoading((p) => ({ ...p, [id]: false }))
   }
 
   async function handleReject(id) {
     setActionLoading((p) => ({ ...p, [id]: true }))
-    try {
-      await rejectDeployment(id)
-      await loadApprovals()
-    } catch {
-      alert("Rejection failed")
-    } finally {
-      setActionLoading((p) => ({ ...p, [id]: false }))
-    }
+    await rejectDeployment(id)
+    await loadApprovals()
+    setActionLoading((p) => ({ ...p, [id]: false }))
   }
 
-  if (loading) return <p>Loading prod approvals...</p>
+  if (loading) return <p>Loading approvals...</p>
   if (error) return <p style={{ color: "red" }}>{error}</p>
 
   const pending = approvals.filter((a) => a.status === "pending")
@@ -79,8 +68,8 @@ export default function AdminApprovals() {
       <h3>🟡 Pending Approvals</h3>
 
       {pending.length === 0 && (
-        <p style={{ color: "#666" }}>
-          No pending production approvals 🎉
+        <p style={{ color: "#777" }}>
+          No pending approvals
         </p>
       )}
 
@@ -95,11 +84,7 @@ export default function AdminApprovals() {
           }}
         >
           <p>
-            <strong>Service:</strong> {a.serviceName}
-            <br />
-            <strong>Requested By:</strong>{" "}
-            {a.requestedBy || "unknown"}
-            <br />
+            <strong>Service:</strong> {a.serviceName}<br />
             <strong>Requested At:</strong>{" "}
             {new Date(a.createdAt).toLocaleString()}
           </p>
@@ -107,24 +92,17 @@ export default function AdminApprovals() {
           <button
             onClick={() => handleApprove(a.id)}
             disabled={actionLoading[a.id]}
-            style={{
-              marginRight: 8,
-              background: "green",
-              color: "white",
-            }}
+            style={{ marginRight: 8, background: "green", color: "white" }}
           >
-            {actionLoading[a.id] ? "Processing..." : "Approve"}
+            Approve
           </button>
 
           <button
             onClick={() => handleReject(a.id)}
             disabled={actionLoading[a.id]}
-            style={{
-              background: "red",
-              color: "white",
-            }}
+            style={{ background: "red", color: "white" }}
           >
-            {actionLoading[a.id] ? "Processing..." : "Reject"}
+            Reject
           </button>
         </div>
       ))}
@@ -133,7 +111,7 @@ export default function AdminApprovals() {
       <h3 style={{ marginTop: 32 }}>📜 Approval History</h3>
 
       {history.length === 0 && (
-        <p style={{ color: "#666" }}>
+        <p style={{ color: "#777" }}>
           No approval history yet
         </p>
       )}
@@ -150,13 +128,11 @@ export default function AdminApprovals() {
           }}
         >
           <p>
-            <strong>Service:</strong> {a.serviceName}
-            <br />
+            <strong>Service:</strong> {a.serviceName}<br />
             <strong>Status:</strong>{" "}
             <span style={statusStyle(a.status)}>
               {a.status.toUpperCase()}
-            </span>
-            <br />
+            </span><br />
             <strong>Requested At:</strong>{" "}
             {new Date(a.createdAt).toLocaleString()}
             {a.approvedAt && (
