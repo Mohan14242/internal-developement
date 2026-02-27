@@ -19,6 +19,7 @@ type Approval struct {
 	Environment string    `json:"environment"`
 	Status      string    `json:"status"`
 	CreatedAt   time.Time `json:"createdAt"`
+	ApprovedAt *time.Time `json:"approvedAt"`
 }
 
 func GetApprovals(w http.ResponseWriter, r *http.Request) {
@@ -55,6 +56,7 @@ func GetApprovals(w http.ResponseWriter, r *http.Request) {
 			&a.Environment,
 			&a.Status,
 			&a.CreatedAt,
+			&a.ApprovedAt,
 		)
 		if err != nil {
 			log.Println("[APPROVAL][ERROR]", err)

@@ -5,6 +5,17 @@ import {
   rejectDeployment,
 } from "../api/approvals"
 
+function statusStyle(status) {
+  switch (status) {
+    case "approved":
+      return { color: "green", fontWeight: "bold" }
+    case "rejected":
+      return { color: "red", fontWeight: "bold" }
+    default:
+      return { color: "orange", fontWeight: "bold" }
+  }
+}
+
 export default function AdminApprovals() {
   const [approvals, setApprovals] = useState([])
   const [loading, setLoading] = useState(true)
@@ -19,10 +30,8 @@ export default function AdminApprovals() {
     try {
       setLoading(true)
       setError("")
-
       const data = await fetchProdApprovals()
       setApprovals(data)
-
       console.log("[UI] Loaded approvals:", data)
     } catch (err) {
       console.error("[UI] Failed to load approvals", err)
@@ -34,13 +43,10 @@ export default function AdminApprovals() {
 
   async function handleApprove(id) {
     setActionLoading((p) => ({ ...p, [id]: true }))
-
     try {
       await approveDeployment(id)
-      console.log("[UI] Approved deployment:", id)
       await loadApprovals()
-    } catch (err) {
-      console.error("[UI] Approval failed", err)
+    } catch {
       alert("Approval failed")
     } finally {
       setActionLoading((p) => ({ ...p, [id]: false }))
@@ -49,38 +55,36 @@ export default function AdminApprovals() {
 
   async function handleReject(id) {
     setActionLoading((p) => ({ ...p, [id]: true }))
-
     try {
       await rejectDeployment(id)
-      console.log("[UI] Rejected deployment:", id)
       await loadApprovals()
-    } catch (err) {
-      console.error("[UI] Rejection failed", err)
+    } catch {
       alert("Rejection failed")
     } finally {
       setActionLoading((p) => ({ ...p, [id]: false }))
     }
   }
 
-  if (loading) {
-    return <p>Loading prod approvals...</p>
-  }
+  if (loading) return <p>Loading prod approvals...</p>
+  if (error) return <p style={{ color: "red" }}>{error}</p>
 
-  if (error) {
-    return <p style={{ color: "red" }}>{error}</p>
-  }
+  const pending = approvals.filter((a) => a.status === "pending")
+  const history = approvals.filter((a) => a.status !== "pending")
 
   return (
     <div>
       <h2>🔐 Production Deployment Approvals</h2>
 
-      {approvals.length === 0 && (
+      {/* ================= PENDING ================= */}
+      <h3>🟡 Pending Approvals</h3>
+
+      {pending.length === 0 && (
         <p style={{ color: "#666" }}>
           No pending production approvals 🎉
         </p>
       )}
 
-      {approvals.map((a) => (
+      {pending.map((a) => (
         <div
           key={a.id}
           style={{
@@ -93,15 +97,11 @@ export default function AdminApprovals() {
           <p>
             <strong>Service:</strong> {a.serviceName}
             <br />
-            <strong>Version:</strong> {a.version}
-            <br />
             <strong>Requested By:</strong>{" "}
             {a.requestedBy || "unknown"}
             <br />
             <strong>Requested At:</strong>{" "}
-            {a.createdAt
-              ? new Date(a.createdAt).toLocaleString()
-              : "N/A"}
+            {new Date(a.createdAt).toLocaleString()}
           </p>
 
           <button
@@ -126,6 +126,47 @@ export default function AdminApprovals() {
           >
             {actionLoading[a.id] ? "Processing..." : "Reject"}
           </button>
+        </div>
+      ))}
+
+      {/* ================= HISTORY ================= */}
+      <h3 style={{ marginTop: 32 }}>📜 Approval History</h3>
+
+      {history.length === 0 && (
+        <p style={{ color: "#666" }}>
+          No approval history yet
+        </p>
+      )}
+
+      {history.map((a) => (
+        <div
+          key={a.id}
+          style={{
+            border: "1px solid #eee",
+            padding: 14,
+            marginBottom: 10,
+            borderRadius: 6,
+            background: "#fafafa",
+          }}
+        >
+          <p>
+            <strong>Service:</strong> {a.serviceName}
+            <br />
+            <strong>Status:</strong>{" "}
+            <span style={statusStyle(a.status)}>
+              {a.status.toUpperCase()}
+            </span>
+            <br />
+            <strong>Requested At:</strong>{" "}
+            {new Date(a.createdAt).toLocaleString()}
+            {a.approvedAt && (
+              <>
+                <br />
+                <strong>Actioned At:</strong>{" "}
+                {new Date(a.approvedAt).toLocaleString()}
+              </>
+            )}
+          </p>
         </div>
       ))}
     </div>
